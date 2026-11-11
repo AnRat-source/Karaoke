@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0 };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -35,7 +35,7 @@ function parseUltraStar(source) {
   }
   return notes.filter(note => Number.isFinite(note.start) && note.duration > 0 && Number.isFinite(note.midi));
 }
-function songOffset(kind) { return restore(`star-sing:${state.song?.id}:${kind}`, kind === 'lyrics' ? state.song?.lyricOffsetMs || 0 : state.song?.noteOffsetMs || 0); }
+function songOffset(kind) { const defaults = { lyrics: state.song?.lyricOffsetMs || 0, audio: state.song?.karaokeOffsetMs || 0, notes: state.song?.noteOffsetMs || 0 }; return restore(`star-sing:${state.song?.id}:${kind}`, defaults[kind]); }
 function selectValue(id, value) { $(id).value = String(value); $(`${id}Value`).textContent = `${value} ms`; }
 function updatePlayEnabled() { $('play').disabled = !(state.playerReady && hasKaraoke(state.song)); }
 
@@ -105,10 +105,24 @@ function setupPlayers(song) {
 
 async function getLyrics(song, token) {
   $('lyricStatus').textContent = 'LYRICS: LOOKING UP…';
-  const query = new URLSearchParams({ track_name: song.title.replace(/\s*\(.+?\)\s*/g, ''), artist_name: song.artist.split(' feat.')[0], duration: String(song.duration) });
+  const exact = { track_name: song.title.replace(/\s*\(.+?\)\s*/g, ''), artist_name: song.artist.split(' feat.')[0], duration: String(song.duration) };
+  const aliases = song.lyricSearch || [];
   try {
-    const response = await fetch(`https://lrclib.net/api/get?${query}`, { headers: { 'Lrclib-Client': 'STAR-SING/1.0 (static karaoke test)' } });
-    if (!response.ok) throw new Error(); const data = await response.json(); if (token !== state.song?.id) return;
+    let data;
+    for (const candidate of [exact, ...aliases]) {
+      const response = await fetch(`https://lrclib.net/api/get?${new URLSearchParams({ ...candidate, duration: String(song.duration) })}`, { headers: { 'Lrclib-Client': 'STAR-SING/1.0 (static karaoke test)' } });
+      if (response.ok) { const match = await response.json(); if (match.syncedLyrics) { data = match; break; } }
+    }
+    if (!data) {
+      const terms = [exact, ...aliases].map(candidate => `${candidate.artist_name || ''} ${candidate.track_name || ''}`.trim());
+      for (const q of terms) {
+        const response = await fetch(`https://lrclib.net/api/search?${new URLSearchParams({ q })}`, { headers: { 'Lrclib-Client': 'STAR-SING/1.0 (static karaoke test)' } });
+        if (!response.ok) continue; const matches = await response.json();
+        data = matches.filter(match => match.syncedLyrics).sort((a, b) => Math.abs((a.duration || song.duration) - song.duration) - Math.abs((b.duration || song.duration) - song.duration))[0];
+        if (data) break;
+      }
+    }
+    if (!data) throw new Error(); if (token !== state.song?.id) return;
     state.lines = parseLrc(data.syncedLyrics); $('lyricStatus').textContent = state.lines.length ? 'LYRICS: LRCLIB SYNCED' : 'LYRICS: NO TIMING FOUND';
   } catch { if (token === state.song?.id) { state.lines = []; $('lyricStatus').textContent = 'LYRICS: UNAVAILABLE'; } }
 }
@@ -119,11 +133,11 @@ async function getNotes(song, token) {
   try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
-  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.autoStart = autoStart;
+  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.autoStart = autoStart;
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
-  $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('noteOffset', songOffset('notes'));
-  state.lyricOffset = Number($('lyricOffset').value); state.noteOffset = Number($('noteOffset').value); setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
+  $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
+  state.lyricOffset = Number($('lyricOffset').value); state.audioOffset = Number($('audioOffset').value); state.noteOffset = Number($('noteOffset').value); setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
   const token = song.id; setupPlayers(song); getLyrics(song, token); getNotes(song, token); history.replaceState(null, '', `${location.pathname}?song=${encodeURIComponent(song.id)}`);
 }
 function drawLyrics() {
@@ -147,7 +161,7 @@ function drawNotes() {
 function syncKaraokeAudio() {
   if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || state.player?.getPlayerState() !== YT.PlayerState.PLAYING) return;
   const now = performance.now(); if (now - state.lastSyncAt < 1000) return; state.lastSyncAt = now;
-  const desired = state.currentTime + Number(state.song.karaokeOffsetMs || 0) / 1000, actual = state.karaokePlayer.getCurrentTime();
+  const desired = state.currentTime + state.audioOffset / 1000, actual = state.karaokePlayer.getCurrentTime();
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .45) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
 function pollPlayer() {
@@ -159,7 +173,7 @@ function bind() {
   $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
   $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
   $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
-  $('previous').addEventListener('click', () => { if (state.playerReady) { state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, Number(state.song?.karaokeOffsetMs || 0) / 1000), true); } });
+  $('previous').addEventListener('click', () => { if (state.playerReady) { state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, state.audioOffset / 1000), true); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
   $('fullscreen').addEventListener('click', toggleFullscreen);
@@ -171,7 +185,7 @@ function bind() {
     else if (event.key === 'Enter' && state.codeInput) { event.preventDefault(); addTypedCode(); }
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
-  for (const [input, key] of [['lyricOffset', 'lyrics'], ['noteOffset', 'notes']]) $(input).addEventListener('input', event => { const value = Number(event.target.value); state[key === 'lyrics' ? 'lyricOffset' : 'noteOffset'] = value; $(`${input}Value`).textContent = `${value} ms`; if (state.song) store(`star-sing:${state.song.id}:${key}`, value); state.lastLine = -2; });
+  for (const [input, key, stateKey] of [['lyricOffset', 'lyrics', 'lyricOffset'], ['audioOffset', 'audio', 'audioOffset'], ['noteOffset', 'notes', 'noteOffset']]) $(input).addEventListener('input', event => { const value = Number(event.target.value); state[stateKey] = value; $(`${input}Value`).textContent = `${value} ms`; if (state.song) store(`star-sing:${state.song.id}:${key}`, value); state.lastLine = -2; });
   addEventListener('resize', drawNotes);
 }
 function startClock() { const render = () => { $('clock').textContent = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' }).format(new Date()); }; render(); setInterval(render, 1000); }
