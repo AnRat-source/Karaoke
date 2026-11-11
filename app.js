@@ -13,6 +13,10 @@ const validUrl = value => { try { return new URL(value).protocol === 'https:'; }
 const hasKaraoke = song => Boolean(song?.karaokeYoutubeId);
 
 function setStatus(message, bad = false) { const node = $('status'); node.textContent = message; node.classList.toggle('bad', bad); }
+function logTimingPreset() {
+  if (!state.song) return;
+  console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset }));
+}
 function parseLrc(source) {
   const lines = [];
   for (const row of String(source || '').split(/\r?\n/)) {
@@ -185,7 +189,7 @@ function bind() {
     else if (event.key === 'Enter' && state.codeInput) { event.preventDefault(); addTypedCode(); }
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
-  for (const [input, key, stateKey] of [['lyricOffset', 'lyrics', 'lyricOffset'], ['audioOffset', 'audio', 'audioOffset'], ['noteOffset', 'notes', 'noteOffset']]) $(input).addEventListener('input', event => { const value = Number(event.target.value); state[stateKey] = value; $(`${input}Value`).textContent = `${value} ms`; if (state.song) store(`star-sing:${state.song.id}:${key}`, value); state.lastLine = -2; });
+  for (const [input, key, stateKey] of [['lyricOffset', 'lyrics', 'lyricOffset'], ['audioOffset', 'audio', 'audioOffset'], ['noteOffset', 'notes', 'noteOffset']]) $(input).addEventListener('input', event => { const value = Number(event.target.value); state[stateKey] = value; $(`${input}Value`).textContent = `${value} ms`; if (state.song) store(`star-sing:${state.song.id}:${key}`, value); if (key === 'lyrics' || key === 'audio') logTimingPreset(); state.lastLine = -2; });
   addEventListener('resize', drawNotes);
 }
 function startClock() { const render = () => { $('clock').textContent = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' }).format(new Date()); }; render(); setInterval(render, 1000); }
@@ -195,8 +199,8 @@ async function init() {
   try {
     const response = await fetch('./catalog.json', { cache: 'no-cache' }), data = await response.json(); state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
     const selected = state.catalog.find(song => song.id === new URLSearchParams(location.search).get('song')); if (selected) addToQueue(selected);
-    await youtubeReady; if (state.song) setupPlayers(state.song);
   } catch { setStatus('The song catalogue could not be loaded. Serve this folder over HTTP or GitHub Pages.', true); }
+  await youtubeReady; if (state.song) setupPlayers(state.song);
   requestAnimationFrame(pollPlayer);
 }
 init();
