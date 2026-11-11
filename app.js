@@ -197,10 +197,12 @@ function startClock() { const render = () => { $('clock').textContent = new Intl
 function startBackdrop() { const clips = ['https://cdn.coverr.co/videos/coverr-aerial-view-of-a-city-at-night-1573/1080p.mp4', 'https://cdn.coverr.co/videos/coverr-neon-lights-in-the-city-1571/1080p.mp4']; const video = $('backdropVideo'); video.src = clips[Math.floor(Math.random() * clips.length)]; video.play().catch(() => {}); }
 async function init() {
   bind(); startClock(); startBackdrop(); state.volume = Math.max(0, Math.min(100, Number(restore('star-sing:volume', 80)))); $('volume').value = String(state.volume); $('volumeValue').textContent = `${state.volume}%`; loadYoutubeApi();
+  let data;
   try {
-    const response = await fetch('./catalog.json', { cache: 'no-cache' }), data = await response.json(); state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
-    const selected = state.catalog.find(song => song.id === new URLSearchParams(location.search).get('song')); if (selected) addToQueue(selected);
-  } catch { setStatus('The song catalogue could not be loaded. Serve this folder over HTTP or GitHub Pages.', true); }
+    const response = await fetch('./catalog.json', { cache: 'no-cache' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); data = await response.json();
+  } catch { setStatus('The song catalogue could not be loaded. Serve this folder over HTTP or GitHub Pages.', true); requestAnimationFrame(pollPlayer); return; }
+  state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
+  const selected = state.catalog.find(song => song.id === new URLSearchParams(location.search).get('song')); if (selected) addToQueue(selected);
   await youtubeReady; if (state.song) setupPlayers(state.song);
   requestAnimationFrame(pollPlayer);
 }
