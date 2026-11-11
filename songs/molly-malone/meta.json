@@ -1,0 +1,16 @@
+{
+  "id": "molly-malone",
+  "title": "Molly Malone (Cockles and Mussels)",
+  "artist": "Traditional Irish song",
+  "genre": "Folk",
+  "key": "C major",
+  "bpm": 106,
+  "duration": 38.46,
+  "audio": "backing.mp3",
+  "lyrics": "lyrics.lrc",
+  "notes": "notes.json",
+  "license": "LICENSE.txt",
+  "demo": true,
+  "language": "en",
+  "description": "Short, simplified practice arrangement with a quiet synthesized melody guide."
+}

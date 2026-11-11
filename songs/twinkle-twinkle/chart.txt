@@ -1,0 +1,54 @@
+#TITLE:Twinkle, Twinkle, Little Star
+#ARTIST:Traditional
+#BPM:104
+#GAP:0
+#CREATOR:NEON Karaoke library (practice arrangement)
+#RELATIVE:NO
+: 16 4 0  Twinkle,
+: 20 4 0  Twinkle,
+: 24 4 7  twinkle,
+: 28 4 7  twinkle,
+: 32 4 9  little
+: 36 4 9  little
+: 40 8 7  star
+- 49
+: 52 4 5  How
+: 56 4 5  How
+: 60 4 4  I
+: 64 4 4  wonder
+: 68 4 2  what
+: 72 4 2  you
+: 76 8 0  are
+- 85
+: 88 4 7  Up
+: 92 4 7  Up
+: 96 4 5  above
+: 100 4 5  the
+: 104 4 4  world
+: 108 4 4  so
+: 112 8 2  high
+- 121
+: 124 4 7  Like
+: 128 4 7  Like
+: 132 4 5  a
+: 136 4 5  diamond
+: 140 4 4  in
+: 144 4 4  the
+: 148 8 2  sky
+- 157
+: 160 4 0  Twinkle,
+: 164 4 0  Twinkle,
+: 168 4 7  twinkle,
+: 172 4 7  twinkle,
+: 176 4 9  little
+: 180 4 9  little
+: 184 8 7  star
+- 193
+: 196 4 5  How
+: 200 4 5  How
+: 204 4 4  I
+: 208 4 4  wonder
+: 212 4 2  what
+: 216 4 2  you
+: 220 8 0  are
+E

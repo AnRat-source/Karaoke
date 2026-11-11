@@ -1,0 +1,150 @@
+{
+  "format": "neon-notes-v1",
+  "tempo": 86,
+  "notes": [
+    {
+      "start": 2.791,
+      "duration": 1.395,
+      "midi": 67,
+      "line": 0
+    },
+    {
+      "start": 4.186,
+      "duration": 1.395,
+      "midi": 64,
+      "line": 0
+    },
+    {
+      "start": 5.581,
+      "duration": 0.698,
+      "midi": 67,
+      "line": 0
+    },
+    {
+      "start": 6.279,
+      "duration": 0.698,
+      "midi": 69,
+      "line": 0
+    },
+    {
+      "start": 6.977,
+      "duration": 2.093,
+      "midi": 67,
+      "line": 0
+    },
+    {
+      "start": 9.767,
+      "duration": 0.698,
+      "midi": 67,
+      "line": 1
+    },
+    {
+      "start": 10.465,
+      "duration": 0.698,
+      "midi": 69,
+      "line": 1
+    },
+    {
+      "start": 11.163,
+      "duration": 0.698,
+      "midi": 67,
+      "line": 1
+    },
+    {
+      "start": 11.86,
+      "duration": 0.698,
+      "midi": 65,
+      "line": 1
+    },
+    {
+      "start": 12.558,
+      "duration": 0.698,
+      "midi": 64,
+      "line": 1
+    },
+    {
+      "start": 13.256,
+      "duration": 0.698,
+      "midi": 62,
+      "line": 1
+    },
+    {
+      "start": 13.953,
+      "duration": 2.093,
+      "midi": 60,
+      "line": 1
+    },
+    {
+      "start": 16.744,
+      "duration": 1.395,
+      "midi": 67,
+      "line": 2
+    },
+    {
+      "start": 18.14,
+      "duration": 1.395,
+      "midi": 64,
+      "line": 2
+    },
+    {
+      "start": 19.535,
+      "duration": 0.698,
+      "midi": 67,
+      "line": 2
+    },
+    {
+      "start": 20.233,
+      "duration": 0.698,
+      "midi": 69,
+      "line": 2
+    },
+    {
+      "start": 20.93,
+      "duration": 2.093,
+      "midi": 67,
+      "line": 2
+    },
+    {
+      "start": 23.721,
+      "duration": 0.698,
+      "midi": 67,
+      "line": 3
+    },
+    {
+      "start": 24.419,
+      "duration": 0.698,
+      "midi": 69,
+      "line": 3
+    },
+    {
+      "start": 25.116,
+      "duration": 0.698,
+      "midi": 67,
+      "line": 3
+    },
+    {
+      "start": 25.814,
+      "duration": 0.698,
+      "midi": 65,
+      "line": 3
+    },
+    {
+      "start": 26.512,
+      "duration": 0.698,
+      "midi": 64,
+      "line": 3
+    },
+    {
+      "start": 27.209,
+      "duration": 0.698,
+      "midi": 62,
+      "line": 3
+    },
+    {
+      "start": 27.907,
+      "duration": 2.093,
+      "midi": 60,
+      "line": 3
+    }
+  ]
+}

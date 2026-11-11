@@ -1,0 +1,37 @@
+#TITLE:We Wish You a Merry Christmas
+#ARTIST:Traditional
+#BPM:112
+#GAP:0
+#CREATOR:NEON Karaoke library (practice arrangement)
+#RELATIVE:NO
+: 16 4 7  We
+: 20 4 0  We
+: 24 4 0  wish
+: 28 4 2  you
+: 32 4 0  a
+: 36 4 -1  merry
+: 40 8 -3  Christmas
+- 49
+: 52 4 9  We
+: 56 4 2  We
+: 60 4 2  wish
+: 64 4 4  you
+: 68 4 2  a
+: 72 4 0  merry
+: 76 8 -1  Christmas
+- 85
+: 88 4 7  We
+: 92 4 4  We
+: 96 4 4  wish
+: 100 4 5  you
+: 104 4 4  a
+: 108 4 2  merry
+: 112 8 0  Christmas
+- 121
+: 124 4 2  And
+: 128 4 7  And
+: 132 4 7  a
+: 136 4 9  happy
+: 140 8 7  New
+: 148 12 0  Year
+E

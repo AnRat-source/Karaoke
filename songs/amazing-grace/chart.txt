@@ -1,0 +1,41 @@
+#TITLE:Amazing Grace
+#ARTIST:John Newton / Traditional
+#BPM:84
+#GAP:0
+#CREATOR:NEON Karaoke library (practice arrangement)
+#RELATIVE:NO
+: 16 4 7  Amazing
+: 20 8 0  Amazing
+: 28 4 4  grace,
+: 32 4 0  how
+: 36 8 4  how
+: 44 4 2  sweet
+: 48 8 0  the
+: 56 8 9  the
+: 64 8 7  sound
+- 73
+: 76 4 7  That
+: 80 8 0  That
+: 88 4 4  saved
+: 92 4 0  a
+: 96 8 4  soul
+: 104 4 2  like
+: 108 12 7  me
+- 121
+: 124 8 4  I
+: 132 4 7  once
+: 136 4 4  was
+: 140 4 7  lost,
+: 144 8 9  but
+: 152 4 7  now
+: 156 4 4  am
+: 160 12 0  found
+- 173
+: 176 4 7  Was
+: 180 8 0  Was
+: 188 4 4  blind,
+: 192 4 0  but
+: 196 8 4  now
+: 204 4 2  I
+: 208 12 0  see
+E

@@ -1,0 +1,16 @@
+{
+  "id": "greensleeves",
+  "title": "Greensleeves",
+  "artist": "Traditional English ballad",
+  "genre": "Ballad",
+  "key": "A minor",
+  "bpm": 91,
+  "duration": 33.79,
+  "audio": "backing.mp3",
+  "lyrics": "lyrics.lrc",
+  "notes": "notes.json",
+  "license": "LICENSE.txt",
+  "demo": true,
+  "language": "en",
+  "description": "Short, simplified practice arrangement with a quiet synthesized melody guide."
+}

@@ -1,0 +1,16 @@
+{
+  "id": "deck-the-halls",
+  "title": "Deck the Halls",
+  "artist": "Traditional Welsh carol",
+  "genre": "Holiday",
+  "key": "C major",
+  "bpm": 126,
+  "duration": 22.8,
+  "audio": "backing.mp3",
+  "lyrics": "lyrics.lrc",
+  "notes": "notes.json",
+  "license": "LICENSE.txt",
+  "demo": true,
+  "language": "en",
+  "description": "Short, simplified practice arrangement with a quiet synthesized melody guide."
+}

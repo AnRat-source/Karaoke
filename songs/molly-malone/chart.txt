@@ -1,0 +1,60 @@
+#TITLE:Molly Malone (Cockles and Mussels)
+#ARTIST:Traditional Irish song
+#BPM:106
+#GAP:0
+#CREATOR:NEON Karaoke library (practice arrangement)
+#RELATIVE:NO
+: 16 4 0  In
+: 20 4 2  In
+: 24 4 4  Dublin
+: 28 4 5  fair
+: 32 4 7  city
+: 36 4 4  city
+: 40 4 2  where
+: 44 4 0  girls
+: 48 4 2  are
+: 52 4 4  are
+: 56 4 5  so
+: 60 4 7  pretty
+- 65
+: 68 4 7  I
+: 72 4 9  I
+: 76 4 7  first
+: 80 4 5  set
+: 84 4 4  my
+: 88 4 2  eyes
+: 92 4 0  eyes
+: 96 4 2  on
+: 100 4 4  sweet
+: 104 4 2  Molly
+: 108 8 0  Malone
+- 117
+: 120 4 0  As
+: 124 4 2  As
+: 128 4 4  she
+: 132 4 5  she
+: 136 4 7  wheeled
+: 140 4 9  her
+: 144 4 7  her
+: 148 8 5  wheelbarrow
+- 157
+: 160 4 7  Through
+: 164 4 5  Through
+: 168 4 4  streets
+: 172 4 2  broad
+: 176 4 0  broad
+: 180 4 2  and
+: 184 12 0  narrow
+- 197
+: 200 4 0  Crying
+: 204 4 2  Crying
+: 208 4 4  cockles
+: 212 4 5  cockles
+: 216 4 7  and
+: 220 4 9  mussels
+: 224 4 7  mussels
+: 228 4 5  alive
+: 232 4 4  alive
+: 236 4 2  alive
+: 240 12 0  oh
+E
