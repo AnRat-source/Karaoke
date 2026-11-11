@@ -3,48 +3,72 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#100f19">
-  <meta name="description" content="Self-hosted karaoke song library with synced lyrics and live microphone pitch scoring.">
-  <title>NEON — Karaoke Library</title>
+  <meta name="theme-color" content="#100808">
+  <meta name="description" content="A retro karaoke machine interface powered by official YouTube embeds and LRCLIB timed lyrics.">
+  <title>STAR SING — Karaoke Machine</title>
   <link rel="stylesheet" href="styles.css">
   <script defer src="app.js"></script>
 </head>
 <body>
-  <div class="shell">
-    <header class="masthead">
-      <div class="heading"><div class="symbol" aria-hidden="true">♫</div><div><strong>NEON<span class="asterisk">*</span> KARAOKE</strong><small>YOUR OWN SONG LIBRARY</small></div></div>
-      <div class="mast-right"><span class="topinfo" id="libraryStatus">Loading song catalog…</span><a class="toplink" href="README.md" target="_blank" rel="noopener">About the library ↗</a></div>
+  <div class="video-atmosphere" aria-hidden="true"><video id="backdropVideo" autoplay muted loop playsinline></video><div class="video-fallback"></div></div>
+  <div class="scanlines" aria-hidden="true"></div>
+  <div class="machine-shell">
+    <header class="machine-marquee">
+      <a class="brand" href="index.html" aria-label="STAR SING home"><span class="brand-star">★</span><span>STAR<br><b>SING</b></span></a>
+      <div class="marquee-copy"><strong>SUPER VIDEO KARAOKE</strong><span>SELECT A NUMBER · TAKE THE MIC · SING LOUD</span></div>
+      <a class="songbook-link" href="songbook.html">OPEN<br><b>SONG BOOK</b> ↗</a>
     </header>
-    <main class="layout">
-      <aside class="window library-window" id="library">
-        <div class="window-bar"><span class="barname">/ songs / library</span><span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span></div>
-        <div class="library-content">
-          <div class="library-heading"><h2>Song library</h2><span id="songCount">—</span></div>
-          <label class="visually-hidden" for="search">Search songs and artists</label>
-          <input id="search" type="search" placeholder="Search a song or artist…" autocomplete="off">
-          <div class="filters"><label for="genre">Genre</label><select id="genre"><option value="all">All genres</option></select></div>
-          <div class="songs" id="songList" role="list"><div class="empty">Loading songs…</div></div>
-          <div class="library-footer"><span>20 original practice recordings</span><span>↑ No music API required</span></div>
-        </div>
+
+    <main class="machine-grid">
+      <aside class="control-deck" aria-label="Song selection controls">
+        <div class="deck-top"><span>SONG SELECT</span><span id="songCount">00</span></div>
+        <label class="visually-hidden" for="search">Find a song</label>
+        <input id="search" type="search" placeholder="TYPE TITLE / ARTIST" autocomplete="off">
+        <div class="catalog-head"><span>CODE</span><span>SONG / ARTIST</span></div>
+        <div id="songList" class="song-list" role="list"><p>LOADING SONG BOOK…</p></div>
+        <div class="deck-bottom"><span class="lamp"></span><span>YOUTUBE + LRCLIB</span><span class="lamp amber"></span></div>
       </aside>
-      <section class="workspace" aria-label="Karaoke player" id="stage">
-        <div class="window stage-window">
-          <div class="window-bar"><span class="barname" id="stageFile">/ player / no-song</span><span class="window-controls" aria-hidden="true"><i></i><i></i><i></i></span></div>
-          <div class="stage-content">
-            <div class="track-header"><div class="eyebrow" id="songEyebrow">READY WHEN YOU ARE</div><h1 id="trackTitle">Pick a song to start.</h1><p id="trackInfo">Every track has locally hosted audio, lyrics, and a matching note chart.</p></div>
-            <div class="visual-wrap"><div class="chart-labels"><span>REFERENCE PITCH <span class="dot violet"></span> &nbsp; YOUR VOICE <span class="dot green"></span></span><span id="currentPitch">MIC OFF</span></div><canvas id="pitchCanvas" height="265" aria-label="Scrolling pitch chart with target notes and microphone pitch"></canvas><div class="chart-hint" id="chartHint">Choose a song to view the note chart.</div></div>
-            <div class="lyrics" id="lyrics" aria-live="off"><div class="lyrics-placeholder">♪ &nbsp; Your lyrics will appear here.</div></div>
-            <div class="transport"><div class="timehead"><span id="elapsed">0:00</span><input id="seek" aria-label="Seek through song" type="range" min="0" max="1000" value="0" step="1" disabled><span id="duration">0:00</span></div><div class="transport-row"><button id="back" title="Restart song" disabled>↺ <span>Restart</span></button><button id="play" class="play" disabled>▶ Play</button><button id="mic" class="mic">Enable microphone</button><label class="volume">Volume <input id="volume" aria-label="Playback volume" type="range" min="0" max="1" step="0.01" value="0.76"></label></div><div class="notice" role="status" id="status">Select a song on the left. Use headphones for the best mic accuracy.</div></div>
-            <audio id="audio" preload="metadata"></audio>
+
+      <section class="crt-bay" aria-label="Karaoke player">
+        <div class="tv-case">
+          <div class="tv-glass">
+            <div class="screen-topline"><span id="nowCode">READY</span><span id="clock">--:--</span><span>STEREO</span></div>
+            <div class="player-viewport" id="playerViewport">
+              <div id="youtubePlayer" class="youtube-player"></div>
+              <div class="screen-idle" id="screenIdle"><span class="sparkle">✦</span><b>WELCOME<br>TO STAR SING</b><small>CHOOSE A SONG CODE</small></div>
+              <div class="karaoke-overlay">
+                <p class="track-kicker" id="songEyebrow">SELECT A NUMBER</p>
+                <h1 id="trackTitle">KARAOKE NIGHT</h1>
+                <p id="trackInfo">Official video playback · synced lyrics when available</p>
+                <div class="lyrics" id="lyrics" aria-live="polite"><span>♪ READY WHEN YOU ARE ♪</span></div>
+              </div>
+            </div>
+            <div class="screen-footer"><span id="elapsed">0:00</span><span id="lyricStatus">LYRICS: WAITING</span><span id="duration">0:00</span></div>
           </div>
+          <div class="tv-speaker"><i></i><i></i><i></i><i></i><i></i></div>
         </div>
-        <div class="bottom-grid">
-          <div class="window score-window"><div class="window-bar"><span class="barname">/ session / score</span></div><div class="score-grid"><div><strong id="score">—</strong><small>Pitch accuracy</small></div><div><strong id="streak">0</strong><small>Note streak</small></div><div><strong id="best">—</strong><small>Personal best</small></div></div><p class="score-foot">Score is based on matching the imported reference notes. Silence and incorrect pitches do not earn points.</p></div>
-          <div class="window options-window"><div class="window-bar"><span class="barname">/ session / tune</span></div><div class="option-fields"><label>Pitch tolerance <select id="tolerance"><option value="0.55">Strict (±0.55 semitones)</option><option value="1" selected>Normal (±1 semitone)</option><option value="1.5">Relaxed (±1.5 semitones)</option></select></label><label>Note timing offset <div class="offset"><input id="offset" type="range" min="-500" max="500" step="25" value="0"><output id="offsetValue">0 ms</output></div></label><label class="check"><input id="octave" type="checkbox"> Accept octave equivalents</label></div></div>
-        </div>
+        <section class="console" aria-label="Playback and calibration controls">
+          <div class="console-label"><span>STAR SING 2000</span><b>MICROPHONE MIXER</b><span>★ DIGITAL ★</span></div>
+          <div class="transport-row">
+            <button id="previous" class="round-button" type="button" title="Restart"><span>↺</span><small>RESTART</small></button>
+            <button id="play" class="big-play" type="button" disabled><span>▶</span><b>PLAY</b></button>
+            <button id="next" class="round-button" type="button" title="Next song"><span>›</span><small>NEXT</small></button>
+            <a id="youtubeLink" class="youtube-link disabled" target="_blank" rel="noopener">WATCH ON<br>YOUTUBE ↗</a>
+          </div>
+          <div class="calibration-panel">
+            <label>LYRIC DELAY <input id="lyricOffset" type="range" min="-2500" max="2500" step="50" value="0"><output id="lyricOffsetValue">0 ms</output></label>
+            <label>NOTE-CHART DELAY <input id="noteOffset" type="range" min="-2500" max="2500" step="50" value="0"><output id="noteOffsetValue">0 ms</output></label>
+          </div>
+          <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
+        </section>
+        <section class="pitch-bay" aria-label="Note chart">
+          <div class="pitch-head"><span>VOCAL GUIDE / NOTE API</span><span id="noteStatus">NO CHART SELECTED</span></div>
+          <canvas id="pitchCanvas" height="140"></canvas>
+          <p>Note charts are loaded from each song’s configured chart endpoint. Tune this offset separately from lyric timing.</p>
+        </section>
       </section>
     </main>
-    <footer>NEON / KARAOKE LIBRARY <span>STATIC SITE · YOUR AUDIO STAYS IN THIS REPOSITORY · NO MICROPHONE AUDIO IS UPLOADED</span></footer>
+    <footer><span>STAR SING — PERSONAL TEST CATALOG</span><span>OFFICIAL EMBEDS ONLY · NO AUDIO OR LYRICS STORED</span></footer>
   </div>
 </body>
 </html>
