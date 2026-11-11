@@ -1,20 +1,26 @@
 # STAR SING Karaoke Machine
 
-A static, retro karaoke-machine interface for a small test song catalogue. It embeds the configured official YouTube video, requests timed lyrics from LRCLIB only while a song is selected, and never stores audio or lyric text in this repository.
+A static retro karaoke-machine interface. Each queued song uses two locked YouTube embeds: its muted official video plays as the background while a separate karaoke-video backing track supplies audio. Timed lyrics are requested from LRCLIB only for the selected song; this repository does not store audio, lyrics, or note charts.
 
 ## Run it
 
-Serve this folder over HTTP (or publish it on GitHub Pages), then open `index.html`:
+Serve this folder through HTTP (or publish it on GitHub Pages), then open `index.html`:
 
 ```bash
 npx serve .
 ```
 
-The player needs internet access for YouTube, LRCLIB, Google Fonts, and the optional ambient background video. If the background clip is unavailable, the built-in animated-color fallback remains visible.
+Internet access is required for the two YouTube players, LRCLIB, Google Fonts, and the optional ambient video. The machine uses a CSS fallback if the ambient clip cannot load.
+
+## Using the machine
+
+The main machine opens with an empty playlist. Type a five-digit code or a song title to see up to five close matches. Click one to add it, or press Enter to add the closest match. Add as many tracks as wanted; when a song ends, the next queued song starts automatically.
+
+The full listing remains in `songbook.html`. On a mobile screen, tapping a song-book row copies its song code instead of navigating away.
 
 ## Catalogue
 
-Edit [catalog.json](catalog.json). Each entry has a five-digit karaoke `code`, basic metadata, an official YouTube video ID/link, and independent lyric/note timing defaults.
+Edit [catalog.json](catalog.json). Each entry uses this shape:
 
 ```json
 {
@@ -23,40 +29,41 @@ Edit [catalog.json](catalog.json). Each entry has a five-digit karaoke `code`, b
   "title": "My Song",
   "artist": "Artist",
   "duration": 210,
-  "youtubeId": "YouTubeVideoId",
-  "youtubeUrl": "https://www.youtube.com/watch?v=YouTubeVideoId",
+  "youtubeId": "OfficialYouTubeVideoId",
+  "youtubeUrl": "https://www.youtube.com/watch?v=OfficialYouTubeVideoId",
+  "karaokeYoutubeId": "KaraokeYouTubeVideoId",
+  "karaokeOffsetMs": 0,
   "key": "C major",
+  "blurVideo": false,
   "lyricOffsetMs": 0,
   "noteOffsetMs": 0,
-  "noteApiUrl": "https://your-authorized-chart-api.example/charts/my-song.json"
+  "ultraStarChartUrl": "https://your-authorized-chart-host.example/my-song.txt"
 }
 ```
 
-The player sends the selected title, artist, and duration to LRCLIB. It does not save the response; the user’s lyric offset is stored only in that browser’s localStorage.
+`blurVideo` makes the visible official video deliberately unreadable, useful when it includes its own lyrics. The embedded video itself has captions, player controls, keyboard controls, and pointer interaction disabled. `karaokeOffsetMs` adjusts the karaoke-video playhead against the official-video playhead. The in-machine volume slider changes the karaoke backing only; the official video is always muted.
 
-## Note-chart endpoint
+## UltraStar note charts
 
-There is no universal public note-chart API with rights for commercial songs, so each catalogue entry can opt into a source you are authorized to use. The endpoint must be HTTPS, CORS-enabled, and return:
+There is no universal public note-chart source with rights for commercial songs. Each entry can point to an authorized, CORS-enabled HTTPS UltraStar `.txt` file. It needs an absolute `#BPM` header, an optional `#GAP` in milliseconds, and standard note rows:
 
-```json
-{
-  "notes": [
-    { "start": 12.25, "duration": 0.48, "midi": 60 },
-    { "start": 12.78, "duration": 0.52, "midi": 64 }
-  ]
-}
+```text
+#BPM:120
+#GAP:0
+: 0 4 0 First
+: 4 4 4 line
 ```
 
-The **NOTE-CHART DELAY** control applies to that chart alone, separate from **LYRIC DELAY**. Current test tracks intentionally have `noteApiUrl: null` until an authorized chart source is supplied.
+The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies only to the parsed UltraStar chart. The current test entries deliberately keep `ultraStarChartUrl` unset until an authorized source is available.
 
 ## Rights note
 
-An official YouTube embed is not a license to republish lyrics or note charts. For a public release, use public-domain/creator-authorized material or obtain the needed lyric and chart rights. YouTube’s embedded player is used directly; no video/audio is downloaded or proxied.
+An official YouTube embed is not a license to republish lyrics or note charts. Use public-domain/creator-authorized content or obtain the required lyric/chart rights before public release. The site embeds YouTube directly and never downloads or proxies its audio/video.
 
 ## Files
 
-- `index.html`, `app.js`, `styles.css` — machine/player interface
-- `songbook.html`, `songbook.js` — separate printed-song-book UI
-- `catalog.json` — the seven test entries
+- `index.html`, `app.js`, `styles.css` — player and machine controls
+- `songbook.html`, `songbook.js` — dedicated printed song-book view
+- `catalog.json` — song/video metadata
 
 Site code is MIT-licensed; see [LICENSE](LICENSE).

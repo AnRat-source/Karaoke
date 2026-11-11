@@ -21,11 +21,12 @@
 
     <main class="machine-grid">
       <aside class="control-deck" aria-label="Song selection controls">
-        <div class="deck-top"><span>SONG SELECT</span><span id="songCount">00</span></div>
+        <div class="deck-top"><span>YOUR PLAYLIST</span><span id="songCount">00</span></div>
         <label class="visually-hidden" for="search">Find a song</label>
-        <input id="search" type="search" placeholder="TYPE TITLE / ARTIST" autocomplete="off">
-        <div class="catalog-head"><span>CODE</span><span>SONG / ARTIST</span></div>
-        <div id="songList" class="song-list" role="list"><p>LOADING SONG BOOK…</p></div>
+        <input id="search" type="search" placeholder="TYPE CODE / TITLE TO ADD" autocomplete="off" aria-controls="searchResults">
+        <div id="searchResults" class="search-results" role="listbox" aria-label="Matching songs"></div>
+        <div class="catalog-head"><span>QUEUE</span><span>SONG / ARTIST</span></div>
+        <div id="songList" class="song-list" role="list"><p>PLAYLIST EMPTY. TYPE A SONG CODE OR TITLE ABOVE.</p></div>
         <div class="deck-bottom"><span class="lamp"></span><span>YOUTUBE + LRCLIB</span><span class="lamp amber"></span></div>
       </aside>
 
@@ -35,7 +36,9 @@
             <div class="screen-topline"><span id="nowCode">READY</span><span id="clock">--:--</span><span>STEREO</span></div>
             <div class="player-viewport" id="playerViewport">
               <div id="youtubePlayer" class="youtube-player"></div>
+              <div id="karaokePlayer" class="karaoke-audio-player" aria-hidden="true"></div>
               <div class="screen-idle" id="screenIdle"><span class="sparkle">✦</span><b>WELCOME<br>TO STAR SING</b><small>CHOOSE A SONG CODE</small></div>
+              <div class="note-key" aria-hidden="true"><span>ULTRASTAR NOTE GUIDE</span><i></i><small>TARGET PITCH</small><b>│</b><small>NOW</small></div>
               <div class="karaoke-overlay">
                 <p class="track-kicker" id="songEyebrow">SELECT A NUMBER</p>
                 <h1 id="trackTitle">KARAOKE NIGHT</h1>
@@ -53,6 +56,8 @@
             <button id="previous" class="round-button" type="button" title="Restart"><span>↺</span><small>RESTART</small></button>
             <button id="play" class="big-play" type="button" disabled><span>▶</span><b>PLAY</b></button>
             <button id="next" class="round-button" type="button" title="Next song"><span>›</span><small>NEXT</small></button>
+            <label class="volume-control">VOL <input id="volume" type="range" min="0" max="100" step="1" value="80" aria-label="YouTube volume"><output id="volumeValue">80%</output></label>
+            <button id="fullscreen" class="fullscreen-button" type="button" title="Fullscreen video and lyrics">⛶ <span>FULLSCREEN</span></button>
             <a id="youtubeLink" class="youtube-link disabled" target="_blank" rel="noopener">WATCH ON<br>YOUTUBE ↗</a>
           </div>
           <div class="calibration-panel">
@@ -62,9 +67,9 @@
           <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
         </section>
         <section class="pitch-bay" aria-label="Note chart">
-          <div class="pitch-head"><span>VOCAL GUIDE / NOTE API</span><span id="noteStatus">NO CHART SELECTED</span></div>
+          <div class="pitch-head"><span>VOCAL GUIDE / ULTRASTAR</span><span id="noteStatus">NO CHART SELECTED</span></div>
           <canvas id="pitchCanvas" height="140"></canvas>
-          <p>Note charts are loaded from each song’s configured chart endpoint. Tune this offset separately from lyric timing.</p>
+          <p>UltraStar note charts are loaded only from the configured chart URL. Tune this offset separately from lyric timing.</p>
         </section>
       </section>
     </main>
