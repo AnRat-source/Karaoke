@@ -1,4 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Bungee&family=Space+Mono:wght@400;700&display=swap');
+/* Keep the active karaoke line in the centre of the picture, like a cabinet screen. */
+.karaoke-overlay .lyrics{position:absolute;top:50%;left:4%;right:4%;width:auto;transform:translateY(-50%)}
+.player-viewport:fullscreen .karaoke-overlay .lyrics{top:50%}
 
 /* Player controls and queue overrides. */
 .screen-topline{position:relative}

@@ -90,7 +90,7 @@ const playerVars = { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0, play
 function startPlayback() {
   if (!state.playerReady || !hasKaraoke(state.song)) { setStatus('This song needs a configured karaoke YouTube backing track before it can play.', true); return; }
   state.autoStart = false; state.player.mute(); state.player.playVideo();
-  if (state.karaokeReady) { state.karaokePlayer.setVolume(state.volume); state.karaokePlayer.playVideo(); }
+  if (state.karaokeReady) { state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); state.karaokePlayer.playVideo(); }
   else setStatus('Official video is running muted; karaoke audio is still connecting…');
 }
 function setupPlayers(song) {
@@ -99,7 +99,7 @@ function setupPlayers(song) {
   if (state.player) { state.player.loadVideoById(song.youtubeId); state.player.mute(); } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
-  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); if (state.autoStart && state.playerReady) startPlayback(); else if (state.player?.getPlayerState() === YT.PlayerState.PLAYING) state.karaokePlayer.playVideo(); }, onError: event => { state.karaokeReady = false; setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
+  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); if (state.autoStart && state.playerReady) startPlayback(); else if (state.player?.getPlayerState() === YT.PlayerState.PLAYING) state.karaokePlayer.playVideo(); }, onError: event => { state.karaokeReady = false; updatePlayEnabled(); setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
   if (state.karaokePlayer) { state.karaokePlayer.loadVideoById(song.karaokeYoutubeId); state.karaokePlayer.setVolume(state.volume); state.karaokeReady = true; updatePlayEnabled(); if (state.autoStart) startPlayback(); } else state.karaokePlayer = new YT.Player('karaokePlayer', { videoId: song.karaokeYoutubeId, playerVars, events: karaokeEvents });
 }
 
