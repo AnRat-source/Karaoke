@@ -4,7 +4,7 @@ A static retro karaoke-machine interface. Each queued song uses two locked YouTu
 
 ## Run it
 
-Serve this folder through HTTP (or publish it on GitHub Pages), then open `index.html`:
+Serve this folder through HTTP (or publish it on GitHub Pages), then open `index.html`. Do not open it with `file://`: YouTube embeds require the hosting page to send a referrer.
 
 ```bash
 npx serve .

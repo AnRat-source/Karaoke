@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -72,6 +72,15 @@ function nextInQueue(autoStart = false) {
   if (state.queueIndex + 1 >= state.queue.length) { if (autoStart) setStatus('Playlist complete. Add another song code to keep singing.'); return; }
   selectQueue(state.queueIndex + 1, autoStart);
 }
+function bestCodeMatch(code) { return state.catalog.find(song => song.code === code) || state.catalog.find(song => song.code.startsWith(code)); }
+function clearCodeEntry() { state.codeInput = ''; clearTimeout(state.codeTimer); const readout = $('codeEntry'); readout.hidden = true; readout.textContent = ''; }
+function showCodeEntry(resetTimer = true) {
+  const readout = $('codeEntry'), match = bestCodeMatch(state.codeInput);
+  if (!state.codeInput) { clearCodeEntry(); return; }
+  readout.hidden = false; readout.textContent = match ? `${state.codeInput} · ${match.title.toUpperCase()}` : `${state.codeInput} · NO MATCH`;
+  if (resetTimer) { clearTimeout(state.codeTimer); state.codeTimer = setTimeout(clearCodeEntry, 3200); }
+}
+function addTypedCode() { const match = bestCodeMatch(state.codeInput); if (match) addToQueue(match); else if (state.codeInput) setStatus(`No song starts with code ${state.codeInput}.`, true); clearCodeEntry(); }
 
 let resolveYoutube;
 const youtubeReady = new Promise(resolve => { resolveYoutube = resolve; });
@@ -88,7 +97,7 @@ function setupPlayers(song) {
   if (state.player) { state.player.loadVideoById(song.youtubeId); state.player.mute(); } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
-  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); if (state.autoStart && state.playerReady) startPlayback(); } };
+  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); if (state.autoStart && state.playerReady) startPlayback(); }, onError: event => { state.karaokeReady = false; updatePlayEnabled(); setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
   if (state.karaokePlayer) { state.karaokePlayer.loadVideoById(song.karaokeYoutubeId); state.karaokePlayer.setVolume(state.volume); state.karaokeReady = true; updatePlayEnabled(); if (state.autoStart) startPlayback(); } else state.karaokePlayer = new YT.Player('karaokePlayer', { videoId: song.karaokeYoutubeId, playerVars, events: karaokeEvents });
 }
 
@@ -145,14 +154,21 @@ function pollPlayer() {
 }
 function toggleFullscreen() { const target = $('playerViewport'); if (document.fullscreenElement === target) document.exitFullscreen?.(); else target.requestFullscreen?.(); }
 function bind() {
-  $('search').addEventListener('input', drawSuggestions);
-  $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); } } });
+  $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
+  $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
   $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
   $('previous').addEventListener('click', () => { if (state.playerReady) { state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, Number(state.song?.karaokeOffsetMs || 0) / 1000), true); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
   $('fullscreen').addEventListener('click', toggleFullscreen);
   document.addEventListener('fullscreenchange', () => { const active = document.fullscreenElement === $('playerViewport'); $('fullscreen').classList.toggle('active', active); $('fullscreen').querySelector('span').textContent = active ? 'EXIT FULLSCREEN' : 'FULLSCREEN'; });
+  document.addEventListener('keydown', event => {
+    if (event.defaultPrevented || event.target === $('search') || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (/^[0-9]$/.test(event.key)) { event.preventDefault(); state.codeInput = `${state.codeInput}${event.key}`.slice(-5); showCodeEntry(); }
+    else if (event.key === 'Backspace' && state.codeInput) { event.preventDefault(); state.codeInput = state.codeInput.slice(0, -1); showCodeEntry(); }
+    else if (event.key === 'Enter' && state.codeInput) { event.preventDefault(); addTypedCode(); }
+    else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
+  });
   for (const [input, key] of [['lyricOffset', 'lyrics'], ['noteOffset', 'notes']]) $(input).addEventListener('input', event => { const value = Number(event.target.value); state[key === 'lyrics' ? 'lyricOffset' : 'noteOffset'] = value; $(`${input}Value`).textContent = `${value} ms`; if (state.song) store(`star-sing:${state.song.id}:${key}`, value); state.lastLine = -2; });
   addEventListener('resize', drawNotes);
 }
