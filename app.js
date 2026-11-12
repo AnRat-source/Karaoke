@@ -26,6 +26,18 @@ function parseLrc(source) {
   }
   return lines.sort((a, b) => a.time - b.time);
 }
+function unquoteYaml(value) { const text = String(value || '').trim(); if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) return text.slice(1, -1).replace(/\\n/g, '\n').replace(/\\"/g, '"'); return text; }
+function parseLyricsfile(source) {
+  const lines = []; let line; let word;
+  for (const row of String(source || '').split(/\r?\n/)) {
+    const indent = row.match(/^\s*/)[0].length, text = row.trim();
+    if (indent === 2 && text.startsWith('- text:')) { line = { text: unquoteYaml(text.slice(7)), words: [] }; lines.push(line); word = null; continue; }
+    if (indent >= 6 && text.startsWith('- text:') && line) { word = { text: unquoteYaml(text.slice(7)) }; line.words.push(word); continue; }
+    const match = text.match(/^(start_ms|end_ms):\s*(\d+)/); if (!match) continue;
+    const target = indent >= 6 && word ? word : line; if (target) target[match[1]] = Number(match[2]);
+  }
+  return lines.filter(item => Number.isFinite(item.start_ms) && item.text).map(item => ({ time: item.start_ms / 1000, end: Number(item.end_ms || item.start_ms) / 1000, text: item.text, words: item.words.filter(word => Number.isFinite(word.start_ms)).map(word => ({ text: word.text, start: word.start_ms / 1000, end: Number(word.end_ms || item.end_ms || word.start_ms) / 1000 })) }));
+}
 function parseUltraStar(source) {
   const headers = Object.fromEntries([...String(source || '').matchAll(/^#([A-Z]+)\s*:\s*(.+)$/gim)].map(match => [match[1], match[2].trim()]));
   const bpm = Number(String(headers.BPM || '').replace(',', '.'));
@@ -147,7 +159,7 @@ async function getLyrics(song, token) {
       }
     }
     if (!data) throw new Error(); if (token !== state.song?.id) return;
-    state.lines = parseLrc(data.syncedLyrics); $('lyricStatus').textContent = state.lines.length ? 'LYRICS: LRCLIB SYNCED' : 'LYRICS: NO TIMING FOUND'; state.lastLine = -2; drawLyrics();
+    state.lines = data.hasWordSync ? parseLyricsfile(data.lyricsfile) : parseLrc(data.syncedLyrics); $('lyricStatus').textContent = state.lines.length ? data.hasWordSync ? 'LYRICS: LRCLIB WORD SYNCED' : 'LYRICS: LRCLIB SYNCED' : 'LYRICS: NO TIMING FOUND'; state.lastLine = -2; drawLyrics();
   } catch { if (token === state.song?.id) { state.lines = []; state.lastLine = -2; $('lyricStatus').textContent = 'LYRICS: UNAVAILABLE'; drawLyrics(); } }
 }
 async function getNotes(song, token) {
@@ -164,13 +176,15 @@ function loadSong(song, autoStart = false) {
   state.lyricOffset = Number($('lyricOffset').value); state.audioOffset = Number($('audioOffset').value); state.noteOffset = Number($('noteOffset').value); setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
   const token = song.id; setupPlayers(song); getLyrics(song, token); getNotes(song, token); history.replaceState(null, '', `${location.pathname}?song=${encodeURIComponent(song.id)}`);
 }
+function updateWordFill(root, adjusted) { for (const word of root.querySelectorAll('[data-word-start]')) { const start = Number(word.dataset.wordStart), end = Number(word.dataset.wordEnd) || start + .1, progress = Math.max(0, Math.min(1, (adjusted - start) / Math.max(.01, end - start))); word.style.setProperty('--word-progress', progress); } }
 function drawLyrics() {
   const root = $('lyrics'), adjusted = state.currentTime - state.lyricOffset / 1000; let index = -1;
   for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) index = i; else break; }
-  if (index === state.lastLine) return; state.lastLine = index; root.replaceChildren();
+  if (index === state.lastLine) { updateWordFill(root, adjusted); return; } state.lastLine = index; root.replaceChildren();
   if (!state.lines.length) { const note = document.createElement('span'); note.textContent = $('lyricStatus').textContent.includes('UNAVAILABLE') || $('lyricStatus').textContent.includes('NO TIMING') ? '♪ TIMED LYRICS UNAVAILABLE ♪' : '♪ LOADING TIMED LYRICS ♪'; root.append(note); return; }
-  for (const [lineIndex, className] of [[index - 1, 'before'], [index, 'active'], [index + 1, 'after']]) { const line = state.lines[lineIndex]; if (line) { const row = document.createElement('div'); row.className = className; row.textContent = line.text; root.append(row); } }
+  for (const [lineIndex, className] of [[index - 1, 'before'], [index, 'active'], [index + 1, 'after']]) { const line = state.lines[lineIndex]; if (line) { const row = document.createElement('div'); row.className = className; if (className === 'active' && line.words?.length) { for (const word of line.words) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(word.start); span.dataset.wordEnd = String(word.end); span.textContent = word.text; row.append(span); } } else row.textContent = line.text; root.append(row); } }
   if (index < 0) { const next = document.createElement('div'); next.className = 'after'; next.textContent = state.lines[0].text; root.append(next); }
+  updateWordFill(root, adjusted);
 }
 function drawNotes() {
   const rect = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2), width = Math.max(1, Math.floor(rect.width * dpr)), height = Math.max(1, Math.floor(rect.height * dpr));
