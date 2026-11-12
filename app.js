@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0 };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, furiganaCache: new Map(), furiganaPending: new Map() };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -18,7 +18,24 @@ function logTimingPreset() {
   console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset }));
 }
 function hideYoutubeCaptions(player) { try { player?.unloadModule?.('captions'); player?.unloadModule?.('cc'); } catch {} }
-function appendLyricText(root, text) { root.textContent = text; }
+const hasKanji = text => /[\u3400-\u9fff\uf900-\ufaff]/.test(text);
+function appendFuriganaWords(root, words) {
+  root.replaceChildren();
+  for (const word of words) for (const piece of word.subword || [word]) { const surface = String(piece.surface || ''), reading = String(piece.furigana || ''); if (surface && reading && hasKanji(surface)) { const ruby = document.createElement('ruby'), rt = document.createElement('rt'); ruby.append(document.createTextNode(surface)); rt.textContent = reading; ruby.append(rt); root.append(ruby); } else root.append(document.createTextNode(surface)); }
+}
+async function getFuriganaWords(text) {
+  if (state.furiganaCache.has(text)) return state.furiganaCache.get(text);
+  if (state.furiganaPending.has(text)) return state.furiganaPending.get(text);
+  const clientId = String(restore('star-sing:yahoo-furigana-client-id', '') || '').trim(); if (!clientId) return null;
+  const pending = fetch(`https://jlp.yahooapis.jp/FuriganaService/V2/furigana?appid=${encodeURIComponent(clientId)}`, { method: 'POST', mode: 'cors', body: JSON.stringify({ id: `star-sing-${Date.now()}`, jsonrpc: '2.0', method: 'jlp.furiganaservice.furigana', params: { q: text, grade: 1 } }) }).then(response => response.ok ? response.json() : null).then(data => Array.isArray(data?.result?.word) ? data.result.word : null).catch(() => null).then(words => { state.furiganaPending.delete(text); if (words) state.furiganaCache.set(text, words); return words; });
+  state.furiganaPending.set(text, pending); return pending;
+}
+function appendLyricText(root, text) {
+  root.dataset.lyricText = text; root.textContent = text;
+  if (!hasKanji(text)) return;
+  if (state.furiganaCache.has(text)) { appendFuriganaWords(root, state.furiganaCache.get(text)); return; }
+  getFuriganaWords(text).then(words => { if (words && root.isConnected && root.dataset.lyricText === text) appendFuriganaWords(root, words); });
+}
 function parseLrc(source) {
   const lines = [];
   for (const row of String(source || '').split(/\r?\n/)) {
@@ -98,7 +115,7 @@ function nextInQueue(autoStart = false) {
 }
 function bestCodeMatch(code) { return state.catalog.find(song => song.code === code) || state.catalog.find(song => song.code.startsWith(code)); }
 function clearCodeEntry() { state.codeInput = ''; clearTimeout(state.codeTimer); const readout = $('codeEntry'); readout.hidden = true; readout.textContent = ''; }
-function setOperatorOpen(open) { $('operatorPanel').hidden = !open; if (open) setStatus('Operator calibration active. Direct values are saved only in this browser.'); }
+function setOperatorOpen(open) { $('operatorPanel').hidden = !open; if (open) { $('operatorYahooClientId').value = String(restore('star-sing:yahoo-furigana-client-id', '') || ''); setStatus('Operator calibration active. Direct values are saved only in this browser.'); } }
 function clearOperatorCode() { state.operatorCode = ''; clearTimeout(state.operatorTimer); }
 function collectOperatorCode(event) {
   if (event.key === '*') { state.operatorCode = '*'; clearTimeout(state.operatorTimer); state.operatorTimer = setTimeout(clearOperatorCode, 4000); return true; }
@@ -227,7 +244,7 @@ function bind() {
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
   for (const [kind, field] of Object.entries(timingFields)) $(field.slider).addEventListener('input', event => setTiming(kind, event.target.value));
-  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); setStatus('Direct timing values applied. Copy the preset from the console when ready.'); });
+  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? 'Direct timing values and Yahoo furigana Client ID saved in this browser.' : 'Direct timing values saved. Add a Yahoo Client ID to enable Japanese readings.'); });
   $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
   addEventListener('resize', drawNotes);
 }

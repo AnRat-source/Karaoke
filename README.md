@@ -60,7 +60,7 @@ The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies on
 
 The normal screen deliberately has no timing sliders. Open the operator panel with `*1978#`, or type `1978` and press Enter (useful on mobile). It exposes direct millisecond fields and prints a catalog-ready timing preset in the browser console. These per-song values are stored only in that browser until copied into `catalog.json`.
 
-Accurate furigana needs an authorized lyric source that supplies readings (ruby text) or a Japanese dictionary package. This test catalog currently uses LRCLIB’s plain or timed text, which does not include readings, so the player keeps the original Japanese text rather than guess pronunciations or run a large tokenizer during playback.
+For Japanese readings, obtain a Yahoo Japan Furigana API Client ID, open the operator panel, and save it in **YAHOO FURIGANA CLIENT ID**. The ID is stored only in that browser, never in the catalog or Git. When set, each displayed Japanese lyric line is sent directly to Yahoo’s API, converted to ruby text, and cached locally; no large dictionary is downloaded.
 
 ## Rights note
 
