@@ -235,9 +235,12 @@ function syncKaraokeAudio(force = false) {
   state.currentTime = visualTime; const desired = visualTime + state.audioOffset / 1000;
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
-function pollPlayer() {
+function refreshPlaybackClock() {
   if (state.playerReady && state.player?.getCurrentTime) state.currentTime = getTimelineTime();
-  $('elapsed').textContent = toTime(state.currentTime); drawLyrics(); drawNotes(); syncKaraokeAudio(); requestAnimationFrame(pollPlayer);
+  $('elapsed').textContent = toTime(state.currentTime); drawLyrics(); drawNotes(); syncKaraokeAudio();
+}
+function pollPlayer() {
+  refreshPlaybackClock(); requestAnimationFrame(pollPlayer);
 }
 function toggleFullscreen() { const target = $('playerViewport'); if (document.fullscreenElement === target) document.exitFullscreen?.(); else target.requestFullscreen?.(); }
 function bind() {
@@ -273,6 +276,6 @@ async function init() {
   state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
   const selected = state.catalog.find(song => song.id === new URLSearchParams(location.search).get('song')); if (selected) addToQueue(selected);
   await youtubeReady; if (state.song) setupPlayers(state.song);
-  requestAnimationFrame(pollPlayer);
+  setInterval(refreshPlaybackClock, 250); requestAnimationFrame(pollPlayer);
 }
 init();
