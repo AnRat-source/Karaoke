@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#100808">
   <meta name="description" content="A retro karaoke machine interface powered by official YouTube embeds and LRCLIB timed lyrics.">
   <title>STAR SING — Karaoke Machine</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=furigana2">
   <script defer src="app.js?v=furigana4"></script>
 </head>
@@ -65,7 +66,6 @@
             <label>KARAOKE AUDIO DELAY <input id="audioOffset" type="range" min="-5000" max="5000" step="50" value="0"><output id="audioOffsetValue">0 ms</output></label>
             <label>NOTE-CHART DELAY <input id="noteOffset" type="range" min="-2500" max="2500" step="50" value="0"><output id="noteOffsetValue">0 ms</output></label>
           </div>
-          <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
           <aside id="operatorPanel" class="operator-panel" hidden aria-label="Operator calibration settings">
             <div><b>OPERATOR CALIBRATION</b><button id="closeOperator" type="button" title="Close operator settings">×</button></div>
             <p>Exact millisecond values are saved only in this browser. Copy the console preset into the catalog when you are satisfied.</p>
@@ -75,6 +75,7 @@
             <label class="api-key-label">YAHOO FURIGANA CLIENT ID <input id="operatorYahooClientId" type="text" autocomplete="off" spellcheck="false" placeholder="OPTIONAL"> </label>
             <button id="operatorApply" type="button">APPLY DIRECT VALUES</button>
           </aside>
+          <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
         </section>
         <section class="pitch-bay" aria-label="Note chart">
           <div class="pitch-head"><span>VOCAL GUIDE / ULTRASTAR</span><span id="noteStatus">NO CHART SELECTED</span></div>

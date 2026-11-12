@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>STAR SING</title>
+  <defs>
+    <linearGradient id="cabinet" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#a63742"/>
+      <stop offset=".55" stop-color="#541a27"/>
+      <stop offset="1" stop-color="#842e2e"/>
+    </linearGradient>
+    <radialGradient id="mic" cx="35%" cy="24%">
+      <stop stop-color="#f5cf83"/>
+      <stop offset=".42" stop-color="#d78a51"/>
+      <stop offset="1" stop-color="#6b3029"/>
+    </radialGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="12" fill="#170d0e"/>
+  <rect x="6" y="6" width="52" height="52" rx="9" fill="url(#cabinet)" stroke="#ffe2a0" stroke-width="3"/>
+  <path d="M10 16h44M10 48h44" stroke="#ffbb68" stroke-width="1.5" opacity=".75"/>
+  <path d="M40.8 14.5l2.1 5.3 5.6.3-4.3 3.6 1.4 5.5-4.8-2.9-4.8 2.9 1.4-5.5-4.3-3.6 5.6-.3z" fill="#fff0b8" stroke="#ffcb52" stroke-width="1.1"/>
+  <g transform="rotate(-18 28 36)">
+    <rect x="20" y="17" width="17" height="25" rx="8.5" fill="url(#mic)" stroke="#ffe3a0" stroke-width="1.8"/>
+    <path d="M22.5 25h12M22 30h13M23 35h11" stroke="#5e2928" stroke-width="1.5" opacity=".8"/>
+    <path d="M16.5 32.5v1.7c0 7.1 5 11.3 12 11.3s12-4.2 12-11.3v-1.7" fill="none" stroke="#41d7ca" stroke-width="3" stroke-linecap="round"/>
+    <path d="M28.5 45.5v6M21.5 52h14" fill="none" stroke="#ffe2a0" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>
