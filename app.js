@@ -104,7 +104,7 @@ function startPlayback() {
 }
 function setupPlayers(song) {
   if (!window.YT?.Player) { setStatus('YouTube player is still starting. Please try again in a moment.'); return; }
-  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
+  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) syncKaraokeAudio(true); if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
   if (state.player) { state.player.loadVideoById(song.youtubeId); state.player.mute(); hideYoutubeCaptions(state.player); } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
@@ -170,7 +170,8 @@ function drawNotes() {
 function syncKaraokeAudio(force = false) {
   if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || state.player?.getPlayerState() !== YT.PlayerState.PLAYING) return;
   const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
-  const desired = state.currentTime + state.audioOffset / 1000, actual = state.karaokePlayer.getCurrentTime();
+  const visualTime = state.player.getCurrentTime(); if (!Number.isFinite(visualTime)) return; state.currentTime = visualTime;
+  const desired = visualTime + state.audioOffset / 1000, actual = state.karaokePlayer.getCurrentTime();
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
 function pollPlayer() {
