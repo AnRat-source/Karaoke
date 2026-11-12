@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0 };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -40,8 +40,14 @@ function parseUltraStar(source) {
   }
   return notes.filter(note => Number.isFinite(note.start) && note.duration > 0 && Number.isFinite(note.midi));
 }
+const timingFields = { lyrics: { slider: 'lyricOffset', operator: 'operatorLyricOffset', state: 'lyricOffset' }, audio: { slider: 'audioOffset', operator: 'operatorAudioOffset', state: 'audioOffset' }, notes: { slider: 'noteOffset', operator: 'operatorNoteOffset', state: 'noteOffset' } };
 function songOffset(kind) { const defaults = { lyrics: state.song?.lyricOffsetMs || 0, audio: state.song?.karaokeOffsetMs || 0, notes: state.song?.noteOffsetMs || 0 }; return restore(`star-sing:${state.song?.id}:${kind}`, defaults[kind]); }
-function selectValue(id, value) { $(id).value = String(value); $(`${id}Value`).textContent = `${value} ms`; }
+function setTiming(kind, rawValue, persist = true) {
+  const field = timingFields[kind], value = Math.max(-120000, Math.min(120000, Math.round(Number(rawValue) || 0))), slider = $(field.slider);
+  state[field.state] = value; slider.value = String(Math.max(Number(slider.min), Math.min(Number(slider.max), value))); $(`${field.slider}Value`).textContent = `${value} ms`; $(field.operator).value = String(value);
+  if (persist && state.song) store(`star-sing:${state.song.id}:${kind}`, value); if (persist && (kind === 'lyrics' || kind === 'audio')) logTimingPreset(); state.lastLine = -2; drawLyrics();
+}
+function selectValue(id, value) { const kind = Object.entries(timingFields).find(([, field]) => field.slider === id)?.[0]; if (kind) setTiming(kind, value, false); }
 function updatePlayEnabled() { $('play').disabled = !(state.playerReady && hasKaraoke(state.song)); }
 
 function matchedSongs() {
@@ -79,6 +85,15 @@ function nextInQueue(autoStart = false) {
 }
 function bestCodeMatch(code) { return state.catalog.find(song => song.code === code) || state.catalog.find(song => song.code.startsWith(code)); }
 function clearCodeEntry() { state.codeInput = ''; clearTimeout(state.codeTimer); const readout = $('codeEntry'); readout.hidden = true; readout.textContent = ''; }
+function setOperatorOpen(open) { $('operatorPanel').hidden = !open; if (open) setStatus('Operator calibration active. Direct values are saved only in this browser.'); }
+function clearOperatorCode() { state.operatorCode = ''; clearTimeout(state.operatorTimer); }
+function collectOperatorCode(event) {
+  if (event.key === '*') { state.operatorCode = '*'; clearTimeout(state.operatorTimer); state.operatorTimer = setTimeout(clearOperatorCode, 4000); return true; }
+  if (!state.operatorCode) return false;
+  if (/^\d$/.test(event.key)) { state.operatorCode += event.key; return true; }
+  if (event.key === '#') { const valid = state.operatorCode === '*1978'; clearOperatorCode(); if (valid) setOperatorOpen($('operatorPanel').hidden); else setStatus('Unknown operator code.', true); return true; }
+  clearOperatorCode(); return false;
+}
 function showCodeEntry(resetTimer = true) {
   const readout = $('codeEntry'), match = bestCodeMatch(state.codeInput);
   if (!state.codeInput) { clearCodeEntry(); return; }
@@ -132,8 +147,8 @@ async function getLyrics(song, token) {
       }
     }
     if (!data) throw new Error(); if (token !== state.song?.id) return;
-    state.lines = parseLrc(data.syncedLyrics); $('lyricStatus').textContent = state.lines.length ? 'LYRICS: LRCLIB SYNCED' : 'LYRICS: NO TIMING FOUND';
-  } catch { if (token === state.song?.id) { state.lines = []; $('lyricStatus').textContent = 'LYRICS: UNAVAILABLE'; } }
+    state.lines = parseLrc(data.syncedLyrics); $('lyricStatus').textContent = state.lines.length ? 'LYRICS: LRCLIB SYNCED' : 'LYRICS: NO TIMING FOUND'; state.lastLine = -2; drawLyrics();
+  } catch { if (token === state.song?.id) { state.lines = []; state.lastLine = -2; $('lyricStatus').textContent = 'LYRICS: UNAVAILABLE'; drawLyrics(); } }
 }
 async function getNotes(song, token) {
   state.notes = [];
@@ -142,7 +157,7 @@ async function getNotes(song, token) {
   try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
-  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.autoStart = autoStart;
+  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.autoStart = autoStart; $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
   $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
@@ -153,7 +168,7 @@ function drawLyrics() {
   const root = $('lyrics'), adjusted = state.currentTime - state.lyricOffset / 1000; let index = -1;
   for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) index = i; else break; }
   if (index === state.lastLine) return; state.lastLine = index; root.replaceChildren();
-  if (!state.lines.length) { const note = document.createElement('span'); note.textContent = '♪ TIMED LYRICS WILL APPEAR HERE ♪'; root.append(note); return; }
+  if (!state.lines.length) { const note = document.createElement('span'); note.textContent = $('lyricStatus').textContent.includes('UNAVAILABLE') || $('lyricStatus').textContent.includes('NO TIMING') ? '♪ TIMED LYRICS UNAVAILABLE ♪' : '♪ LOADING TIMED LYRICS ♪'; root.append(note); return; }
   for (const [lineIndex, className] of [[index - 1, 'before'], [index, 'active'], [index + 1, 'after']]) { const line = state.lines[lineIndex]; if (line) { const row = document.createElement('div'); row.className = className; row.textContent = line.text; root.append(row); } }
   if (index < 0) { const next = document.createElement('div'); next.className = 'after'; next.textContent = state.lines[0].text; root.append(next); }
 }
@@ -189,13 +204,16 @@ function bind() {
   $('fullscreen').addEventListener('click', toggleFullscreen);
   document.addEventListener('fullscreenchange', () => { const active = document.fullscreenElement === $('playerViewport'); $('fullscreen').classList.toggle('active', active); $('fullscreen').querySelector('span').textContent = active ? 'EXIT FULLSCREEN' : 'FULLSCREEN'; });
   document.addEventListener('keydown', event => {
-    if (event.defaultPrevented || event.target === $('search') || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (event.defaultPrevented || event.target.matches?.('input, textarea, select') || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (collectOperatorCode(event)) { event.preventDefault(); return; }
     if (/^[0-9]$/.test(event.key)) { event.preventDefault(); state.codeInput = `${state.codeInput}${event.key}`.slice(-5); showCodeEntry(); }
     else if (event.key === 'Backspace' && state.codeInput) { event.preventDefault(); state.codeInput = state.codeInput.slice(0, -1); showCodeEntry(); }
     else if (event.key === 'Enter' && state.codeInput) { event.preventDefault(); addTypedCode(); }
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
-  for (const [input, key, stateKey] of [['lyricOffset', 'lyrics', 'lyricOffset'], ['audioOffset', 'audio', 'audioOffset'], ['noteOffset', 'notes', 'noteOffset']]) $(input).addEventListener('input', event => { const value = Number(event.target.value); state[stateKey] = value; $(`${input}Value`).textContent = `${value} ms`; if (state.song) store(`star-sing:${state.song.id}:${key}`, value); if (key === 'lyrics' || key === 'audio') logTimingPreset(); state.lastLine = -2; });
+  for (const [kind, field] of Object.entries(timingFields)) $(field.slider).addEventListener('input', event => setTiming(kind, event.target.value));
+  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); setStatus('Direct timing values applied. Copy the preset from the console when ready.'); });
+  $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
   addEventListener('resize', drawNotes);
 }
 function startClock() { const render = () => { $('clock').textContent = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' }).format(new Date()); }; render(); setInterval(render, 1000); }

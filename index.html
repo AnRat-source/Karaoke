@@ -66,6 +66,14 @@
             <label>NOTE-CHART DELAY <input id="noteOffset" type="range" min="-2500" max="2500" step="50" value="0"><output id="noteOffsetValue">0 ms</output></label>
           </div>
           <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
+          <aside id="operatorPanel" class="operator-panel" hidden aria-label="Operator calibration settings">
+            <div><b>OPERATOR CALIBRATION</b><button id="closeOperator" type="button" title="Close operator settings">×</button></div>
+            <p>Exact millisecond values are saved only in this browser. Copy the console preset into the catalog when you are satisfied.</p>
+            <label>LYRIC DELAY <input id="operatorLyricOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
+            <label>KARAOKE AUDIO DELAY <input id="operatorAudioOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
+            <label>NOTE-CHART DELAY <input id="operatorNoteOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
+            <button id="operatorApply" type="button">APPLY DIRECT VALUES</button>
+          </aside>
         </section>
         <section class="pitch-bay" aria-label="Note chart">
           <div class="pitch-head"><span>VOCAL GUIDE / ULTRASTAR</span><span id="noteStatus">NO CHART SELECTED</span></div>
