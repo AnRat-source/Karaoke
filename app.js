@@ -214,10 +214,11 @@ function drawNotes() {
   for (const note of state.notes) { const x = cursor + (note.start - t) * scale, y = h / 2 - (note.midi - center) * 9; if (x > w || x + note.duration * scale < 0) continue; ctx.fillStyle = note.start <= t && t <= note.start + note.duration ? '#ffd35a' : '#41d7ca'; ctx.fillRect(x, y - 5, Math.max(3, note.duration * scale - 2), 10); }
   ctx.strokeStyle = '#fff4c4'; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
 }
+function playbackIsActive() { return state.player?.getPlayerState?.() === YT.PlayerState.PLAYING || $('play')?.classList.contains('playing'); }
 function useKaraokeClock(visualTime, audioTime) {
-  return Number.isFinite(visualTime) && visualTime < .1 && Number.isFinite(audioTime) && audioTime > .1 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
+  return Number.isFinite(visualTime) && visualTime < .1 && Number.isFinite(audioTime) && audioTime > .1 && playbackIsActive() && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
 }
-function useFallbackClock(visualTime, audioTime) { return (!Number.isFinite(visualTime) || visualTime < .1) && (!Number.isFinite(audioTime) || audioTime < .1) && state.playbackClockStartedAt > 0 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING; }
+function useFallbackClock(visualTime, audioTime) { return (!Number.isFinite(visualTime) || visualTime < .1) && (!Number.isFinite(audioTime) || audioTime < .1) && state.playbackClockStartedAt > 0 && playbackIsActive(); }
 function getTimelineTime() {
   const visualTime = Number(state.player?.getCurrentTime?.()), audioTime = Number(state.karaokePlayer?.getCurrentTime?.());
   if (useKaraokeClock(visualTime, audioTime)) return Math.max(0, audioTime - state.audioOffset / 1000);
@@ -225,7 +226,7 @@ function getTimelineTime() {
   return Number.isFinite(visualTime) ? visualTime : state.currentTime;
 }
 function syncKaraokeAudio(force = false) {
-  if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || state.player?.getPlayerState() !== YT.PlayerState.PLAYING) return;
+  if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || !playbackIsActive()) return;
   const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
   const visualTime = Number(state.player.getCurrentTime()), actual = Number(state.karaokePlayer.getCurrentTime());
   if (useKaraokeClock(visualTime, actual)) { state.currentTime = Math.max(0, actual - state.audioOffset / 1000); return; }
