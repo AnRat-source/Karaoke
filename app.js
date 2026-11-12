@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map() };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map() };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -71,11 +71,35 @@ function parseUltraStar(source) {
   return notes.filter(note => Number.isFinite(note.start) && note.duration > 0 && Number.isFinite(note.midi));
 }
 const timingFields = { lyrics: { slider: 'lyricOffset', operator: 'operatorLyricOffset', state: 'lyricOffset' }, audio: { slider: 'audioOffset', operator: 'operatorAudioOffset', state: 'audioOffset' }, notes: { slider: 'noteOffset', operator: 'operatorNoteOffset', state: 'noteOffset' } };
+const catalogTimingFields = { lyrics: 'lyricOffsetMs', audio: 'karaokeOffsetMs', notes: 'noteOffsetMs' };
 function songOffset(kind) { const defaults = { lyrics: state.song?.lyricOffsetMs || 0, audio: state.song?.karaokeOffsetMs || 0, notes: state.song?.noteOffsetMs || 0 }; return restore(`star-sing:${state.song?.id}:${kind}`, defaults[kind]); }
 function setTiming(kind, rawValue, persist = true) {
   const field = timingFields[kind], value = Math.max(-120000, Math.min(120000, Math.round(Number(rawValue) || 0))), slider = $(field.slider);
   state[field.state] = value; slider.value = String(Math.max(Number(slider.min), Math.min(Number(slider.max), value))); $(`${field.slider}Value`).textContent = `${value} ms`; $(field.operator).value = String(value);
   if (persist && state.song) store(`star-sing:${state.song.id}:${kind}`, value); if (persist && (kind === 'lyrics' || kind === 'audio')) logTimingPreset(); state.lastLine = -2; drawLyrics();
+}
+function savedTiming(songId, kind) {
+  try {
+    const raw = localStorage.getItem(`star-sing:${songId}:${kind}`);
+    if (raw === null) return null;
+    const value = Number(JSON.parse(raw));
+    return Number.isFinite(value) ? Math.max(-120000, Math.min(120000, Math.round(value))) : null;
+  } catch { return null; }
+}
+function exportCatalogWithSavedTimings() {
+  if (!state.catalogDocument || !Array.isArray(state.catalogDocument.songs)) { setStatus('The catalog is not ready to export yet.', true); return; }
+  const catalog = JSON.parse(JSON.stringify(state.catalogDocument));
+  let updated = 0;
+  for (const song of catalog.songs) {
+    for (const [kind, field] of Object.entries(catalogTimingFields)) {
+      const value = savedTiming(song.id, kind);
+      if (value !== null && song[field] !== value) { song[field] = value; updated++; }
+    }
+  }
+  const file = new Blob([`${JSON.stringify(catalog, null, 2)}\n`], { type: 'application/json' });
+  const url = URL.createObjectURL(file), link = document.createElement('a');
+  link.href = url; link.download = 'catalog.json'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
+  setStatus(`Exported catalog.json with ${updated} saved timing ${updated === 1 ? 'value' : 'values'}. Yahoo Client ID and other private browser-only settings are not included.`);
 }
 function selectValue(id, value) { const kind = Object.entries(timingFields).find(([, field]) => field.slider === id)?.[0]; if (kind) setTiming(kind, value, false); }
 function updatePlayEnabled() { $('play').disabled = !(state.playerReady && hasKaraoke(state.song)); }
@@ -195,14 +219,52 @@ function loadSong(song, autoStart = false) {
   const token = song.id; setupPlayers(song); getLyrics(song, token); getNotes(song, token); history.replaceState(null, '', `${location.pathname}?song=${encodeURIComponent(song.id)}`);
 }
 function updateWordFill(root, adjusted) { for (const word of root.querySelectorAll('[data-word-start]')) { const start = Number(word.dataset.wordStart), end = Number(word.dataset.wordEnd) || start + .1, progress = Math.max(0, Math.min(1, (adjusted - start) / Math.max(.01, end - start))); word.style.setProperty('--word-progress', progress); } }
+function lyricEndAt(index) {
+  const line = state.lines[index], next = state.lines[index + 1];
+  if (!line) return 0;
+  const wordEnd = line.words?.reduce((latest, word) => Math.max(latest, Number(word.end) || 0), 0) || 0;
+  const readingTime = line.time + Math.max(1.6, Math.min(7, String(line.text).replace(/\s/g, '').length * .13 + .9));
+  const end = Math.max(Number(line.end) || 0, wordEnd, readingTime);
+  return next ? Math.min(end, next.time) : end;
+}
+function appendLyricLine(root, line, className) {
+  if (!line) return;
+  const row = document.createElement('div'); row.className = className;
+  if (className === 'active' && line.words?.length) {
+    for (const word of line.words) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(word.start); span.dataset.wordEnd = String(word.end); span.dataset.wordText = word.text; appendLyricText(span, word.text); row.append(span); }
+  } else appendLyricText(row, line.text);
+  root.append(row);
+}
+function renderNowPlaying(root) {
+  if (root.dataset.mode === 'now-playing') return;
+  root.replaceChildren(); root.className = 'lyrics now-playing'; root.dataset.mode = 'now-playing';
+  const label = document.createElement('small'), title = document.createElement('strong');
+  label.textContent = 'NOW PLAYING'; title.textContent = state.song?.title || 'STAR SING'; root.append(label, title);
+}
+function renderInterlude(root, fill, countdown) {
+  if (root.dataset.mode !== 'interlude') {
+    root.replaceChildren(); root.className = 'lyrics interlude'; root.dataset.mode = 'interlude';
+    const label = document.createElement('small'), meter = document.createElement('span'), bar = document.createElement('i'), count = document.createElement('b');
+    label.textContent = '( INTERLUDE )'; meter.className = 'interlude-meter'; meter.append(bar); count.className = 'interlude-count'; root.append(label, meter, count);
+  }
+  root.style.setProperty('--interlude-fill', `${(Math.max(0, Math.min(1, fill)) * 100).toFixed(2)}%`);
+  root.querySelector('.interlude-count').textContent = countdown ? String(countdown) : '';
+}
 function drawLyrics() {
-  const root = $('lyrics'), adjusted = state.currentTime - state.lyricOffset / 1000; let index = -1;
-  for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) index = i; else break; }
-  if (index === state.lastLine) { updateWordFill(root, adjusted); return; } state.lastLine = index; root.replaceChildren();
-  if (!state.lines.length) { const note = document.createElement('span'); note.textContent = $('lyricStatus').textContent.includes('UNAVAILABLE') || $('lyricStatus').textContent.includes('NO TIMING') ? '♪ TIMED LYRICS UNAVAILABLE ♪' : '♪ LOADING TIMED LYRICS ♪'; root.append(note); return; }
-  for (const [lineIndex, className] of [[index - 1, 'before'], [index, 'active'], [index + 1, 'after']]) { const line = state.lines[lineIndex]; if (line) { const row = document.createElement('div'); row.className = className; if (className === 'active' && line.words?.length) { for (const word of line.words) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(word.start); span.dataset.wordEnd = String(word.end); span.dataset.wordText = word.text; appendLyricText(span, word.text); row.append(span); } } else appendLyricText(row, line.text); root.append(row); } }
-  if (index < 0) { const next = document.createElement('div'); next.className = 'after'; appendLyricText(next, state.lines[0].text); root.append(next); }
-  updateWordFill(root, adjusted);
+  const root = $('lyrics'), adjusted = state.currentTime - state.lyricOffset / 1000;
+  let startedIndex = -1;
+  for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) startedIndex = i; else break; }
+  const activeUntil = lyricEndAt(startedIndex), active = startedIndex >= 0 && adjusted <= activeUntil;
+  if (active) {
+    if (startedIndex !== state.lastLine || root.dataset.mode) { state.lastLine = startedIndex; root.replaceChildren(); root.className = 'lyrics'; delete root.dataset.mode; appendLyricLine(root, state.lines[startedIndex - 1], 'before'); appendLyricLine(root, state.lines[startedIndex], 'active'); appendLyricLine(root, state.lines[startedIndex + 1], 'after'); }
+    updateWordFill(root, adjusted); return;
+  }
+  state.lastLine = -1;
+  const next = state.lines[startedIndex + 1], silentFor = startedIndex >= 0 ? Math.max(0, adjusted - activeUntil) : Math.max(0, state.currentTime);
+  if (silentFor < 5) { renderNowPlaying(root); return; }
+  const interludeStartsAt = startedIndex >= 0 ? activeUntil + 5 : 5, untilNext = next ? Math.max(0, next.time - adjusted) : Infinity;
+  const fill = next ? (adjusted - interludeStartsAt) / Math.max(.1, next.time - interludeStartsAt) : (silentFor - 5) / 20;
+  renderInterlude(root, fill, untilNext > 0 && untilNext <= 5 ? Math.ceil(untilNext) : 0);
 }
 function drawNotes() {
   const rect = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2), width = Math.max(1, Math.floor(rect.width * dpr)), height = Math.max(1, Math.floor(rect.height * dpr));
@@ -262,6 +324,7 @@ function bind() {
   });
   for (const [kind, field] of Object.entries(timingFields)) $(field.slider).addEventListener('input', event => setTiming(kind, event.target.value));
   $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? 'Direct timing values and Yahoo furigana Client ID saved in this browser.' : 'Direct timing values saved. Add a Yahoo Client ID to enable Japanese readings.'); });
+  $('operatorExportCatalog').addEventListener('click', exportCatalogWithSavedTimings);
   $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
   addEventListener('resize', drawNotes);
 }
@@ -273,7 +336,7 @@ async function init() {
   try {
     const response = await fetch('./catalog.json', { cache: 'no-cache' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); data = await response.json();
   } catch { setStatus('The song catalogue could not be loaded. Serve this folder over HTTP or GitHub Pages.', true); requestAnimationFrame(pollPlayer); return; }
-  state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
+  state.catalogDocument = data; state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
   const selected = state.catalog.find(song => song.id === new URLSearchParams(location.search).get('song')); if (selected) addToQueue(selected);
   await youtubeReady; if (state.song) setupPlayers(state.song);
   setInterval(refreshPlaybackClock, 250); requestAnimationFrame(pollPlayer);

@@ -58,7 +58,7 @@ The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies on
 
 ## Operator calibration and Japanese readings
 
-The normal screen deliberately has no timing sliders. Open the operator panel with `*1978#`, or type `1978` and press Enter (useful on mobile). It exposes direct millisecond fields and prints a catalog-ready timing preset in the browser console. These per-song values are stored only in that browser until copied into `catalog.json`.
+The normal screen deliberately has no timing sliders. Open the operator panel with `*1978#`, or type `1978` and press Enter (useful on mobile). It exposes direct millisecond fields. The **EXPORT CATALOG.JSON WITH SAVED TIMINGS** button downloads a complete replacement `catalog.json`, merging every saved per-song lyric, karaoke-audio, and note-chart delay from that browser. It does not export the private Yahoo Furigana Client ID.
 
 For Japanese readings, obtain a Yahoo Japan Furigana API Client ID, open the operator panel, and save it in **YAHOO FURIGANA CLIENT ID**. The ID is stored only in that browser, never in the catalog or Git. When set, each displayed Japanese lyric line is sent directly to Yahoo’s API, converted to ruby text, and cached locally; no large dictionary is downloaded.
 

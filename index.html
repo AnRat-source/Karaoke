@@ -68,12 +68,13 @@
           </div>
           <aside id="operatorPanel" class="operator-panel" hidden aria-label="Operator calibration settings">
             <div><b>OPERATOR CALIBRATION</b><button id="closeOperator" type="button" title="Close operator settings">×</button></div>
-            <p>Exact millisecond values are saved only in this browser. Copy the console preset into the catalog when you are satisfied.</p>
+            <p>Exact millisecond values are saved only in this browser until you export a catalog with the saved timings.</p>
             <label>LYRIC DELAY <input id="operatorLyricOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
             <label>KARAOKE AUDIO DELAY <input id="operatorAudioOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
             <label>NOTE-CHART DELAY <input id="operatorNoteOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
             <label class="api-key-label">YAHOO FURIGANA CLIENT ID <input id="operatorYahooClientId" type="text" autocomplete="off" spellcheck="false" placeholder="OPTIONAL"> </label>
             <button id="operatorApply" type="button">APPLY DIRECT VALUES</button>
+            <button id="operatorExportCatalog" type="button">EXPORT CATALOG.JSON WITH SAVED TIMINGS</button>
           </aside>
           <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
         </section>
