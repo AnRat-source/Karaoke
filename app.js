@@ -214,15 +214,24 @@ function drawNotes() {
   for (const note of state.notes) { const x = cursor + (note.start - t) * scale, y = h / 2 - (note.midi - center) * 9; if (x > w || x + note.duration * scale < 0) continue; ctx.fillStyle = note.start <= t && t <= note.start + note.duration ? '#ffd35a' : '#41d7ca'; ctx.fillRect(x, y - 5, Math.max(3, note.duration * scale - 2), 10); }
   ctx.strokeStyle = '#fff4c4'; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
 }
+function useKaraokeClock(visualTime, audioTime) {
+  return Number(visualTime) < .1 && Number(audioTime) > .1 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
+}
+function getTimelineTime() {
+  const visualTime = Number(state.player?.getCurrentTime?.()), audioTime = Number(state.karaokePlayer?.getCurrentTime?.());
+  if (useKaraokeClock(visualTime, audioTime)) return Math.max(0, audioTime - state.audioOffset / 1000);
+  return Number.isFinite(visualTime) ? visualTime : state.currentTime;
+}
 function syncKaraokeAudio(force = false) {
   if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || state.player?.getPlayerState() !== YT.PlayerState.PLAYING) return;
   const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
-  const visualTime = state.player.getCurrentTime(); if (!Number.isFinite(visualTime)) return; state.currentTime = visualTime;
-  const desired = visualTime + state.audioOffset / 1000, actual = state.karaokePlayer.getCurrentTime();
+  const visualTime = Number(state.player.getCurrentTime()), actual = Number(state.karaokePlayer.getCurrentTime()); if (!Number.isFinite(visualTime)) return;
+  if (useKaraokeClock(visualTime, actual)) { state.currentTime = Math.max(0, actual - state.audioOffset / 1000); return; }
+  state.currentTime = visualTime; const desired = visualTime + state.audioOffset / 1000;
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
 function pollPlayer() {
-  if (state.playerReady && state.player?.getCurrentTime) { const time = state.player.getCurrentTime(); if (Number.isFinite(time)) state.currentTime = time; }
+  if (state.playerReady && state.player?.getCurrentTime) state.currentTime = getTimelineTime();
   $('elapsed').textContent = toTime(state.currentTime); drawLyrics(); drawNotes(); syncKaraokeAudio(); requestAnimationFrame(pollPlayer);
 }
 function toggleFullscreen() { const target = $('playerViewport'); if (document.fullscreenElement === target) document.exitFullscreen?.(); else target.requestFullscreen?.(); }
