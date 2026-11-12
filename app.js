@@ -215,9 +215,9 @@ function drawNotes() {
   ctx.strokeStyle = '#fff4c4'; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
 }
 function useKaraokeClock(visualTime, audioTime) {
-  return Number(visualTime) < .1 && Number(audioTime) > .1 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
+  return Number.isFinite(visualTime) && visualTime < .1 && Number.isFinite(audioTime) && audioTime > .1 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
 }
-function useFallbackClock(visualTime, audioTime) { return Number(visualTime) < .1 && Number(audioTime) < .1 && state.playbackClockStartedAt > 0 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING; }
+function useFallbackClock(visualTime, audioTime) { return (!Number.isFinite(visualTime) || visualTime < .1) && (!Number.isFinite(audioTime) || audioTime < .1) && state.playbackClockStartedAt > 0 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING; }
 function getTimelineTime() {
   const visualTime = Number(state.player?.getCurrentTime?.()), audioTime = Number(state.karaokePlayer?.getCurrentTime?.());
   if (useKaraokeClock(visualTime, audioTime)) return Math.max(0, audioTime - state.audioOffset / 1000);
@@ -227,9 +227,10 @@ function getTimelineTime() {
 function syncKaraokeAudio(force = false) {
   if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || state.player?.getPlayerState() !== YT.PlayerState.PLAYING) return;
   const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
-  const visualTime = Number(state.player.getCurrentTime()), actual = Number(state.karaokePlayer.getCurrentTime()); if (!Number.isFinite(visualTime)) return;
+  const visualTime = Number(state.player.getCurrentTime()), actual = Number(state.karaokePlayer.getCurrentTime());
   if (useKaraokeClock(visualTime, actual)) { state.currentTime = Math.max(0, actual - state.audioOffset / 1000); return; }
   if (useFallbackClock(visualTime, actual)) { state.currentTime = getTimelineTime(); return; }
+  if (!Number.isFinite(visualTime)) return;
   state.currentTime = visualTime; const desired = visualTime + state.audioOffset / 1000;
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
