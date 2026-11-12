@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, furiganaCache: new Map(), furiganaPending: new Map() };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map() };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -139,7 +139,7 @@ function loadYoutubeApi() { const script = document.createElement('script'); scr
 const playerVars = { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, modestbranding: 1, cc_load_policy: 0, iv_load_policy: 3, origin: location.origin };
 function startPlayback() {
   if (!state.playerReady || !hasKaraoke(state.song)) { setStatus('This song needs a configured karaoke YouTube backing track before it can play.', true); return; }
-  state.autoStart = false; state.player.mute(); state.player.playVideo();
+  state.autoStart = false; state.playbackClockBase = Math.max(0, Number(state.player.getCurrentTime()) || state.currentTime); state.playbackClockStartedAt = performance.now(); state.player.mute(); state.player.playVideo();
   if (state.karaokeReady) {
     state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume);
     state.karaokePlayer.seekTo(Math.max(0, state.player.getCurrentTime() + state.audioOffset / 1000), true); state.karaokePlayer.playVideo();
@@ -149,7 +149,7 @@ function startPlayback() {
 }
 function setupPlayers(song) {
   if (!window.YT?.Player) { setStatus('YouTube player is still starting. Please try again in a moment.'); return; }
-  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) syncKaraokeAudio(true); if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
+  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) { if (!state.playbackClockStartedAt) { state.playbackClockBase = state.currentTime; state.playbackClockStartedAt = performance.now(); } syncKaraokeAudio(true); } if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) state.playbackClockStartedAt = 0; if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
   if (state.player) { state.player.loadVideoById(song.youtubeId); state.player.mute(); hideYoutubeCaptions(state.player); } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
@@ -187,7 +187,7 @@ async function getNotes(song, token) {
   try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
-  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.autoStart = autoStart; $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
+  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
   $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
@@ -217,9 +217,11 @@ function drawNotes() {
 function useKaraokeClock(visualTime, audioTime) {
   return Number(visualTime) < .1 && Number(audioTime) > .1 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
 }
+function useFallbackClock(visualTime, audioTime) { return Number(visualTime) < .1 && Number(audioTime) < .1 && state.playbackClockStartedAt > 0 && state.player?.getPlayerState?.() === YT.PlayerState.PLAYING; }
 function getTimelineTime() {
   const visualTime = Number(state.player?.getCurrentTime?.()), audioTime = Number(state.karaokePlayer?.getCurrentTime?.());
   if (useKaraokeClock(visualTime, audioTime)) return Math.max(0, audioTime - state.audioOffset / 1000);
+  if (useFallbackClock(visualTime, audioTime)) return state.playbackClockBase + (performance.now() - state.playbackClockStartedAt) / 1000;
   return Number.isFinite(visualTime) ? visualTime : state.currentTime;
 }
 function syncKaraokeAudio(force = false) {
@@ -227,6 +229,7 @@ function syncKaraokeAudio(force = false) {
   const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
   const visualTime = Number(state.player.getCurrentTime()), actual = Number(state.karaokePlayer.getCurrentTime()); if (!Number.isFinite(visualTime)) return;
   if (useKaraokeClock(visualTime, actual)) { state.currentTime = Math.max(0, actual - state.audioOffset / 1000); return; }
+  if (useFallbackClock(visualTime, actual)) { state.currentTime = getTimelineTime(); return; }
   state.currentTime = visualTime; const desired = visualTime + state.audioOffset / 1000;
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
@@ -238,8 +241,8 @@ function toggleFullscreen() { const target = $('playerViewport'); if (document.f
 function bind() {
   $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
   $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
-  $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
-  $('previous').addEventListener('click', () => { if (state.playerReady) { state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, state.audioOffset / 1000), true); } });
+  $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
+  $('previous').addEventListener('click', () => { if (state.playerReady) { state.playbackClockBase = 0; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, state.audioOffset / 1000), true); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
   $('fullscreen').addEventListener('click', toggleFullscreen);

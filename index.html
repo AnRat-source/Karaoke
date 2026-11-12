@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#100808">
   <meta name="description" content="A retro karaoke machine interface powered by official YouTube embeds and LRCLIB timed lyrics.">
-  <title>STAR SING — Karaoke Machine</title>
+  <title>RatUTA</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=furigana2">
-  <script defer src="app.js?v=sync1"></script>
+  <link rel="stylesheet" href="styles.css?v=ratuta1">
+  <script defer src="app.js?v=sync2"></script>
 </head>
 <body>
   <div class="video-atmosphere" aria-hidden="true"><video id="backdropVideo" autoplay muted loop playsinline></video><div class="video-fallback"></div></div>
   <div class="scanlines" aria-hidden="true"></div>
   <div class="machine-shell">
     <header class="machine-marquee">
-      <a class="brand" href="index.html" aria-label="STAR SING home"><span class="brand-star">★</span><span>STAR<br><b>SING</b></span></a>
-      <div class="marquee-copy"><strong>SUPER VIDEO KARAOKE</strong><span>SELECT A NUMBER · TAKE THE MIC · SING LOUD</span></div>
+      <a class="brand ratuta-brand" href="index.html" aria-label="RatUTA home"><span class="brand-star">★</span><span class="ratuta-word">Rat<em>歌</em></span><small>RATUTA</small></a>
+      <div class="marquee-copy"><strong>RATUTA VIDEO KARAOKE</strong><span>SELECT A NUMBER · TAKE THE MIC · SING LOUD</span></div>
       <a class="songbook-link" href="songbook.html">OPEN<br><b>SONG BOOK</b> ↗</a>
     </header>
 
@@ -38,7 +38,7 @@
             <div class="player-viewport" id="playerViewport">
               <div id="youtubePlayer" class="youtube-player"></div>
               <div id="karaokePlayer" class="karaoke-audio-player" aria-hidden="true"></div>
-              <div class="screen-idle" id="screenIdle"><span class="sparkle">✦</span><b>WELCOME<br>TO STAR SING</b><small>CHOOSE A SONG CODE</small></div>
+              <div class="screen-idle ratuta-welcome" id="screenIdle"><span class="sparkle">✦</span><b><small>WELCOME TO</small><span>Rat<em>歌</em></span></b><small>RATUTA VIDEO KARAOKE · CHOOSE A SONG CODE</small></div>
               <div class="note-key" aria-hidden="true"><span>ULTRASTAR NOTE GUIDE</span><i></i><small>TARGET PITCH</small><b>│</b><small>NOW</small></div>
               <div class="karaoke-overlay">
                 <p class="track-kicker" id="songEyebrow">SELECT A NUMBER</p>
@@ -52,7 +52,7 @@
           <div class="tv-speaker"><i></i><i></i><i></i><i></i><i></i></div>
         </div>
         <section class="console" aria-label="Playback and calibration controls">
-          <div class="console-label"><span>STAR SING 2000</span><b>MICROPHONE MIXER</b><span>★ DIGITAL ★</span></div>
+          <div class="console-label"><span>RATUTA 2000</span><b>MICROPHONE MIXER</b><span>★ DIGITAL ★</span></div>
           <div class="transport-row">
             <button id="previous" class="round-button" type="button" title="Restart"><span>↺</span><small>RESTART</small></button>
             <button id="play" class="big-play" type="button" disabled><span>▶</span><b>PLAY</b></button>
@@ -84,7 +84,7 @@
         </section>
       </section>
     </main>
-    <footer><span>STAR SING — PERSONAL TEST CATALOG</span><span>OFFICIAL EMBEDS ONLY · NO AUDIO OR LYRICS STORED</span></footer>
+    <footer><span>RATUTA — PERSONAL TEST CATALOG</span><span>OFFICIAL EMBEDS ONLY · NO AUDIO OR LYRICS STORED</span></footer>
   </div>
 </body>
 </html>
