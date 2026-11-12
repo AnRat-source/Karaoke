@@ -31,12 +31,12 @@ function parseLyricsfile(source) {
   const lines = []; let line; let word;
   for (const row of String(source || '').split(/\r?\n/)) {
     const indent = row.match(/^\s*/)[0].length, text = row.trim();
-    if (indent === 2 && text.startsWith('- text:')) { line = { text: unquoteYaml(text.slice(7)), words: [] }; lines.push(line); word = null; continue; }
-    if (indent >= 6 && text.startsWith('- text:') && line) { word = { text: unquoteYaml(text.slice(7)) }; line.words.push(word); continue; }
+    if (indent === 0 && text.startsWith('- text:')) { line = { text: unquoteYaml(text.slice(7)), words: [] }; lines.push(line); word = null; continue; }
+    if (indent >= 2 && text.startsWith('- text:') && line) { word = { text: unquoteYaml(text.slice(7)) }; line.words.push(word); continue; }
     const match = text.match(/^(start_ms|end_ms):\s*(\d+)/); if (!match) continue;
-    const target = indent >= 6 && word ? word : line; if (target) target[match[1]] = Number(match[2]);
+    const target = indent >= 2 && word ? word : line; if (target) target[match[1]] = Number(match[2]);
   }
-  return lines.filter(item => Number.isFinite(item.start_ms) && item.text).map(item => ({ time: item.start_ms / 1000, end: Number(item.end_ms || item.start_ms) / 1000, text: item.text, words: item.words.filter(word => Number.isFinite(word.start_ms)).map(word => ({ text: word.text, start: word.start_ms / 1000, end: Number(word.end_ms || item.end_ms || word.start_ms) / 1000 })) }));
+  return lines.filter(item => Number.isFinite(item.start_ms) && item.text).map(item => { const words = item.words.filter(word => Number.isFinite(word.start_ms)); return { time: item.start_ms / 1000, end: Number(item.end_ms || item.start_ms) / 1000, text: item.text, words: words.map((word, index) => ({ text: word.text, start: word.start_ms / 1000, end: Number(word.end_ms || words[index + 1]?.start_ms || item.end_ms || word.start_ms) / 1000 })) }; });
 }
 function parseUltraStar(source) {
   const headers = Object.fromEntries([...String(source || '').matchAll(/^#([A-Z]+)\s*:\s*(.+)$/gim)].map(match => [match[1], match[2].trim()]));
