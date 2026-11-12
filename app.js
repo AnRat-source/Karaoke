@@ -95,17 +95,21 @@ const playerVars = { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0, play
 function startPlayback() {
   if (!state.playerReady || !hasKaraoke(state.song)) { setStatus('This song needs a configured karaoke YouTube backing track before it can play.', true); return; }
   state.autoStart = false; state.player.mute(); state.player.playVideo();
-  if (state.karaokeReady) { state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); state.karaokePlayer.playVideo(); }
+  if (state.karaokeReady) {
+    state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume);
+    state.karaokePlayer.seekTo(Math.max(0, state.player.getCurrentTime() + state.audioOffset / 1000), true); state.karaokePlayer.playVideo();
+    setTimeout(() => syncKaraokeAudio(true), 250); setTimeout(() => syncKaraokeAudio(true), 900);
+  }
   else setStatus('Official video is running muted; karaoke audio is still connecting…');
 }
 function setupPlayers(song) {
   if (!window.YT?.Player) { setStatus('YouTube player is still starting. Please try again in a moment.'); return; }
-  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
+  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
   if (state.player) { state.player.loadVideoById(song.youtubeId); state.player.mute(); hideYoutubeCaptions(state.player); } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
-  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); if (state.autoStart && state.playerReady) startPlayback(); else if (state.player?.getPlayerState() === YT.PlayerState.PLAYING) state.karaokePlayer.playVideo(); }, onError: event => { state.karaokeReady = false; updatePlayEnabled(); setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
-  if (state.karaokePlayer) { state.karaokePlayer.loadVideoById(song.karaokeYoutubeId); state.karaokePlayer.setVolume(state.volume); state.karaokeReady = true; updatePlayEnabled(); if (state.autoStart) startPlayback(); } else state.karaokePlayer = new YT.Player('karaokePlayer', { videoId: song.karaokeYoutubeId, playerVars, events: karaokeEvents });
+  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); setStatus(`${song.title} ready. Press PLAY to start the muted official video and karaoke backing track.`); if (state.autoStart && state.playerReady) startPlayback(); else if (state.player?.getPlayerState() === YT.PlayerState.PLAYING) state.karaokePlayer.playVideo(); }, onError: event => { state.karaokeReady = false; updatePlayEnabled(); setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
+  if (state.karaokePlayer) { state.karaokePlayer.loadVideoById(song.karaokeYoutubeId); state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); state.karaokeReady = true; updatePlayEnabled(); setStatus(`${song.title} ready. Press PLAY to start the muted official video and karaoke backing track.`); if (state.autoStart) startPlayback(); } else state.karaokePlayer = new YT.Player('karaokePlayer', { videoId: song.karaokeYoutubeId, playerVars, events: karaokeEvents });
 }
 
 async function getLyrics(song, token) {
@@ -115,13 +119,13 @@ async function getLyrics(song, token) {
   try {
     let data;
     for (const candidate of [exact, ...aliases]) {
-      const response = await fetch(`https://lrclib.net/api/get?${new URLSearchParams({ ...candidate, duration: String(song.duration) })}`, { headers: { 'Lrclib-Client': 'STAR-SING/1.0 (static karaoke test)' } });
+      const response = await fetch(`https://lrclib.net/api/get?${new URLSearchParams({ ...candidate, duration: String(song.duration) })}`, { cache: 'no-store', credentials: 'omit' });
       if (response.ok) { const match = await response.json(); if (match.syncedLyrics) { data = match; break; } }
     }
     if (!data) {
       const terms = [exact, ...aliases].map(candidate => `${candidate.artist_name || ''} ${candidate.track_name || ''}`.trim());
       for (const q of terms) {
-        const response = await fetch(`https://lrclib.net/api/search?${new URLSearchParams({ q })}`, { headers: { 'Lrclib-Client': 'STAR-SING/1.0 (static karaoke test)' } });
+        const response = await fetch(`https://lrclib.net/api/search?${new URLSearchParams({ q })}`, { cache: 'no-store', credentials: 'omit' });
         if (!response.ok) continue; const matches = await response.json();
         data = matches.filter(match => match.syncedLyrics).sort((a, b) => Math.abs((a.duration || song.duration) - song.duration) - Math.abs((b.duration || song.duration) - song.duration))[0];
         if (data) break;
@@ -163,11 +167,11 @@ function drawNotes() {
   for (const note of state.notes) { const x = cursor + (note.start - t) * scale, y = h / 2 - (note.midi - center) * 9; if (x > w || x + note.duration * scale < 0) continue; ctx.fillStyle = note.start <= t && t <= note.start + note.duration ? '#ffd35a' : '#41d7ca'; ctx.fillRect(x, y - 5, Math.max(3, note.duration * scale - 2), 10); }
   ctx.strokeStyle = '#fff4c4'; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
 }
-function syncKaraokeAudio() {
+function syncKaraokeAudio(force = false) {
   if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || state.player?.getPlayerState() !== YT.PlayerState.PLAYING) return;
-  const now = performance.now(); if (now - state.lastSyncAt < 1000) return; state.lastSyncAt = now;
+  const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
   const desired = state.currentTime + state.audioOffset / 1000, actual = state.karaokePlayer.getCurrentTime();
-  if (Number.isFinite(actual) && Math.abs(actual - desired) > .45) state.karaokePlayer.seekTo(Math.max(0, desired), true);
+  if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
 function pollPlayer() {
   if (state.playerReady && state.player?.getCurrentTime) { const time = state.player.getCurrentTime(); if (Number.isFinite(time)) state.currentTime = time; }
