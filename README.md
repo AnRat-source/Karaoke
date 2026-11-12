@@ -60,7 +60,7 @@ The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies on
 
 The normal screen deliberately has no timing sliders. Open the operator panel with `*1978#`, or type `1978` and press Enter (useful on mobile). It exposes direct millisecond fields and prints a catalog-ready timing preset in the browser console. These per-song values are stored only in that browser until copied into `catalog.json`.
 
-When a shown lyric line contains kanji, the player lazily loads an in-browser Japanese tokenizer and displays its hiragana reading above the kanji. Its language dictionary is downloaded only when a Japanese lyric first appears; if it cannot load, the original lyric text remains visible.
+Accurate furigana needs an authorized lyric source that supplies readings (ruby text) or a Japanese dictionary package. This test catalog currently uses LRCLIB’s plain or timed text, which does not include readings, so the player keeps the original Japanese text rather than guess pronunciations or run a large tokenizer during playback.
 
 ## Rights note
 

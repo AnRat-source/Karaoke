@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, furiganaWorker: null, furiganaRequestId: 0, furiganaRequests: new Map(), furiganaCache: new Map(), furiganaPending: new Map() };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -18,37 +18,7 @@ function logTimingPreset() {
   console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset }));
 }
 function hideYoutubeCaptions(player) { try { player?.unloadModule?.('captions'); player?.unloadModule?.('cc'); } catch {} }
-const hasKanji = text => /[\u3400-\u9fff\uf900-\ufaff]/.test(text);
-const furiganaWorkerSource = `importScripts('https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js', 'https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js'); let converter; async function getConverter() { if (converter) return converter; const Kuroshiro = self.Kuroshiro.default || self.Kuroshiro, KuromojiAnalyzer = self.KuromojiAnalyzer.default || self.KuromojiAnalyzer; converter = new Kuroshiro(); await converter.init(new KuromojiAnalyzer({ dictPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' })); return converter; } self.onmessage = async event => { try { const markup = await (await getConverter()).convert(event.data.text, { to: 'hiragana', mode: 'furigana' }); self.postMessage({ id: event.data.id, markup }); } catch { self.postMessage({ id: event.data.id, markup: null }); } };`;
-function stopFuriganaWorker() { state.furiganaWorker?.terminate(); state.furiganaWorker = null; for (const request of state.furiganaRequests.values()) request(null); state.furiganaRequests.clear(); state.furiganaPending.clear(); }
-function getFuriganaWorker() {
-  if (state.furiganaWorker) return state.furiganaWorker;
-  try {
-    const blobUrl = URL.createObjectURL(new Blob([furiganaWorkerSource], { type: 'text/javascript' }));
-    const worker = new Worker(blobUrl); URL.revokeObjectURL(blobUrl); state.furiganaWorker = worker;
-    worker.onmessage = event => { const request = state.furiganaRequests.get(event.data?.id); if (!request) return; state.furiganaRequests.delete(event.data.id); request(event.data.markup || null); };
-    worker.onerror = stopFuriganaWorker; return worker;
-  } catch { return null; }
-}
-function getFuriganaMarkup(text) {
-  if (state.furiganaCache.has(text)) return Promise.resolve(state.furiganaCache.get(text));
-  if (state.furiganaPending.has(text)) return state.furiganaPending.get(text);
-  const worker = getFuriganaWorker(); if (!worker) return Promise.resolve(null);
-  const id = ++state.furiganaRequestId;
-  const pending = new Promise(resolve => { state.furiganaRequests.set(id, markup => { state.furiganaPending.delete(text); if (markup) state.furiganaCache.set(text, markup); resolve(markup); }); });
-  state.furiganaPending.set(text, pending); worker.postMessage({ id, text }); return pending;
-}
-function appendSafeRuby(root, markup) {
-  const parsed = new DOMParser().parseFromString(markup, 'text/html');
-  const copy = node => { if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue); if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment(); if (!['RUBY', 'RT', 'RP'].includes(node.tagName)) return document.createTextNode(node.textContent || ''); const element = document.createElement(node.tagName.toLowerCase()); for (const child of node.childNodes) element.append(copy(child)); return element; };
-  for (const child of parsed.body.childNodes) root.append(copy(child));
-}
-function appendLyricText(root, text) {
-  root.dataset.lyricText = text; root.textContent = text;
-  if (!hasKanji(text)) return;
-  if (state.furiganaCache.has(text)) { root.replaceChildren(); appendSafeRuby(root, state.furiganaCache.get(text)); return; }
-  getFuriganaMarkup(text).then(markup => { if (!markup || !root.isConnected || root.dataset.lyricText !== text) return; root.replaceChildren(); appendSafeRuby(root, markup); }).catch(() => {});
-}
+function appendLyricText(root, text) { root.textContent = text; }
 function parseLrc(source) {
   const lines = [];
   for (const row of String(source || '').split(/\r?\n/)) {
