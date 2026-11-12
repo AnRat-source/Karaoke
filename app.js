@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0 };
+const state = { catalog: [], queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, furigana: null, furiganaLoading: null, furiganaCache: new Map() };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -18,6 +18,32 @@ function logTimingPreset() {
   console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset }));
 }
 function hideYoutubeCaptions(player) { try { player?.unloadModule?.('captions'); player?.unloadModule?.('cc'); } catch {} }
+const hasKanji = text => /[\u3400-\u9fff\uf900-\ufaff]/.test(text);
+function loadExternalScript(src) { return new Promise((resolve, reject) => { const script = document.createElement('script'); script.src = src; script.async = true; script.onload = resolve; script.onerror = () => reject(new Error('Could not load reading converter')); document.head.append(script); }); }
+async function getFuriganaConverter() {
+  if (state.furigana) return state.furigana;
+  if (!state.furiganaLoading) state.furiganaLoading = (async () => {
+    await loadExternalScript('https://cdn.jsdelivr.net/npm/kuroshiro@1.2.0/dist/kuroshiro.min.js');
+    await loadExternalScript('https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js');
+    const Kuroshiro = window.Kuroshiro?.default || window.Kuroshiro, KuromojiAnalyzer = window.KuromojiAnalyzer?.default || window.KuromojiAnalyzer;
+    if (!Kuroshiro || !KuromojiAnalyzer) throw new Error('Reading converter is unavailable');
+    const converter = new Kuroshiro();
+    await converter.init(new KuromojiAnalyzer({ dictPath: 'https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/' }));
+    state.furigana = converter; return converter;
+  })().catch(() => null);
+  return state.furiganaLoading;
+}
+function appendSafeRuby(root, markup) {
+  const parsed = new DOMParser().parseFromString(markup, 'text/html');
+  const copy = node => { if (node.nodeType === Node.TEXT_NODE) return document.createTextNode(node.nodeValue); if (node.nodeType !== Node.ELEMENT_NODE) return document.createDocumentFragment(); if (!['RUBY', 'RT', 'RP'].includes(node.tagName)) return document.createTextNode(node.textContent || ''); const element = document.createElement(node.tagName.toLowerCase()); for (const child of node.childNodes) element.append(copy(child)); return element; };
+  for (const child of parsed.body.childNodes) root.append(copy(child));
+}
+function appendLyricText(root, text) {
+  root.dataset.lyricText = text; root.textContent = text;
+  if (!hasKanji(text)) return;
+  if (state.furiganaCache.has(text)) { root.replaceChildren(); appendSafeRuby(root, state.furiganaCache.get(text)); return; }
+  getFuriganaConverter().then(converter => converter?.convert(text, { to: 'hiragana', mode: 'furigana' })).then(markup => { if (!markup || !root.isConnected || root.dataset.lyricText !== text) return; state.furiganaCache.set(text, markup); root.replaceChildren(); appendSafeRuby(root, markup); }).catch(() => {});
+}
 function parseLrc(source) {
   const lines = [];
   for (const row of String(source || '').split(/\r?\n/)) {
@@ -182,8 +208,8 @@ function drawLyrics() {
   for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) index = i; else break; }
   if (index === state.lastLine) { updateWordFill(root, adjusted); return; } state.lastLine = index; root.replaceChildren();
   if (!state.lines.length) { const note = document.createElement('span'); note.textContent = $('lyricStatus').textContent.includes('UNAVAILABLE') || $('lyricStatus').textContent.includes('NO TIMING') ? '♪ TIMED LYRICS UNAVAILABLE ♪' : '♪ LOADING TIMED LYRICS ♪'; root.append(note); return; }
-  for (const [lineIndex, className] of [[index - 1, 'before'], [index, 'active'], [index + 1, 'after']]) { const line = state.lines[lineIndex]; if (line) { const row = document.createElement('div'); row.className = className; if (className === 'active' && line.words?.length) { for (const word of line.words) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(word.start); span.dataset.wordEnd = String(word.end); span.textContent = word.text; row.append(span); } } else row.textContent = line.text; root.append(row); } }
-  if (index < 0) { const next = document.createElement('div'); next.className = 'after'; next.textContent = state.lines[0].text; root.append(next); }
+  for (const [lineIndex, className] of [[index - 1, 'before'], [index, 'active'], [index + 1, 'after']]) { const line = state.lines[lineIndex]; if (line) { const row = document.createElement('div'); row.className = className; if (className === 'active' && line.words?.length) { for (const word of line.words) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(word.start); span.dataset.wordEnd = String(word.end); appendLyricText(span, word.text); row.append(span); } } else appendLyricText(row, line.text); root.append(row); } }
+  if (index < 0) { const next = document.createElement('div'); next.className = 'after'; appendLyricText(next, state.lines[0].text); root.append(next); }
   updateWordFill(root, adjusted);
 }
 function drawNotes() {

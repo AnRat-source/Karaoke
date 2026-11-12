@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#100808">
   <meta name="description" content="A retro karaoke machine interface powered by official YouTube embeds and LRCLIB timed lyrics.">
   <title>STAR SING — Karaoke Machine</title>
-  <link rel="stylesheet" href="styles.css?v=wordfill1">
-  <script defer src="app.js?v=wordfill2"></script>
+  <link rel="stylesheet" href="styles.css?v=furigana1">
+  <script defer src="app.js?v=furigana1"></script>
 </head>
 <body>
   <div class="video-atmosphere" aria-hidden="true"><video id="backdropVideo" autoplay muted loop playsinline></video><div class="video-fallback"></div></div>
@@ -60,7 +60,7 @@
             <button id="fullscreen" class="fullscreen-button" type="button" title="Fullscreen video and lyrics">⛶ <span>FULLSCREEN</span></button>
             <a id="youtubeLink" class="youtube-link disabled" target="_blank" rel="noopener">WATCH ON<br>YOUTUBE ↗</a>
           </div>
-          <div class="calibration-panel">
+          <div class="calibration-panel" hidden aria-hidden="true">
             <label>LYRIC DELAY <input id="lyricOffset" type="range" min="-2500" max="2500" step="50" value="0"><output id="lyricOffsetValue">0 ms</output></label>
             <label>KARAOKE AUDIO DELAY <input id="audioOffset" type="range" min="-5000" max="5000" step="50" value="0"><output id="audioOffsetValue">0 ms</output></label>
             <label>NOTE-CHART DELAY <input id="noteOffset" type="range" min="-2500" max="2500" step="50" value="0"><output id="noteOffsetValue">0 ms</output></label>

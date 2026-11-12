@@ -56,6 +56,12 @@ There is no universal public note-chart source with rights for commercial songs.
 
 The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies only to the parsed UltraStar chart. The current test entries deliberately keep `ultraStarChartUrl` unset until an authorized source is available.
 
+## Operator calibration and Japanese readings
+
+The normal screen deliberately has no timing sliders. Open the operator panel with `*1978#`, or type `1978` and press Enter (useful on mobile). It exposes direct millisecond fields and prints a catalog-ready timing preset in the browser console. These per-song values are stored only in that browser until copied into `catalog.json`.
+
+When a shown lyric line contains kanji, the player lazily loads an in-browser Japanese tokenizer and displays its hiragana reading above the kanji. Its language dictionary is downloaded only when a Japanese lyric first appears; if it cannot load, the original lyric text remains visible.
+
 ## Rights note
 
 An official YouTube embed is not a license to republish lyrics or note charts. Use public-domain/creator-authorized content or obtain the required lyric/chart rights before public release. The site embeds YouTube directly and never downloads or proxies its audio/video.
