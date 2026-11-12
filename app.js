@@ -100,7 +100,7 @@ function showCodeEntry(resetTimer = true) {
   readout.hidden = false; readout.textContent = match ? `${state.codeInput} · ${match.title.toUpperCase()}` : `${state.codeInput} · NO MATCH`;
   if (resetTimer) { clearTimeout(state.codeTimer); state.codeTimer = setTimeout(clearCodeEntry, 3200); }
 }
-function addTypedCode() { const match = bestCodeMatch(state.codeInput); if (match) addToQueue(match); else if (state.codeInput) setStatus(`No song starts with code ${state.codeInput}.`, true); clearCodeEntry(); }
+function addTypedCode() { if (state.codeInput === '1978') { setOperatorOpen($('operatorPanel').hidden); clearCodeEntry(); return; } const match = bestCodeMatch(state.codeInput); if (match) addToQueue(match); else if (state.codeInput) setStatus(`No song starts with code ${state.codeInput}.`, true); clearCodeEntry(); }
 
 let resolveYoutube;
 const youtubeReady = new Promise(resolve => { resolveYoutube = resolve; });
