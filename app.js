@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map() };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, score: null, result: null, resultTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -11,6 +11,34 @@ const store = (key, value) => { try { localStorage.setItem(key, JSON.stringify(v
 const restore = (key, fallback) => { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } };
 const validUrl = value => { try { return new URL(value).protocol === 'https:'; } catch { return false; } };
 const hasKaraoke = song => Boolean(song?.karaokeYoutubeId);
+function resetScore() { state.score = { eligible: 0, heard: 0, peak: 0, lastAt: performance.now(), mic: Boolean(state.micAnalyser), reason: '' }; }
+function clearResult() { state.result = null; clearTimeout(state.resultTimer); state.resultTimer = 0; }
+function scoringWindow() {
+  if (state.notes.length) { const t = state.currentTime - state.noteOffset / 1000; return state.notes.some(note => note.start <= t && t <= note.start + note.duration); }
+  const adjusted = state.currentTime - state.lyricOffset / 1000; let index = -1;
+  for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) index = i; else break; }
+  return index >= 0 && adjusted <= lyricEndAt(index);
+}
+function startMicScore() {
+  if (!state.score) return;
+  if (state.micAnalyser) { state.score.mic = true; state.micContext?.resume?.().catch(() => {}); return; }
+  if (state.micPromise || !navigator.mediaDevices?.getUserMedia) { if (!navigator.mediaDevices?.getUserMedia) state.score.reason = 'MICROPHONE NOT SUPPORTED'; return; }
+  state.micPromise = navigator.mediaDevices.getUserMedia({ audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true } }).then(stream => {
+    const Context = window.AudioContext || window.webkitAudioContext; state.micContext = new Context(); state.micAnalyser = state.micContext.createAnalyser(); state.micAnalyser.fftSize = 1024; state.micData = new Uint8Array(state.micAnalyser.fftSize); state.micContext.createMediaStreamSource(stream).connect(state.micAnalyser); state.micStream = stream; state.score.mic = true; state.micContext.resume().catch(() => {}); setStatus('Microphone score is active: sing during the highlighted lyric or note windows.');
+  }).catch(() => { if (state.score) state.score.reason = 'MICROPHONE PERMISSION NOT GRANTED'; }).finally(() => { state.micPromise = null; });
+}
+function sampleMicScore() {
+  const score = state.score, now = performance.now(); if (!score) return; const elapsed = Math.min(.25, Math.max(0, (now - score.lastAt) / 1000)); score.lastAt = now;
+  if (!score.mic || !state.micAnalyser || !playbackIsActive() || !scoringWindow()) return;
+  state.micAnalyser.getByteTimeDomainData(state.micData); let sum = 0; for (const value of state.micData) { const level = (value - 128) / 128; sum += level * level; }
+  const rms = Math.sqrt(sum / state.micData.length), strength = Math.max(0, Math.min(1, (rms - .012) / .06)); score.eligible += elapsed; score.heard += elapsed * strength; score.peak = Math.max(score.peak, rms);
+}
+function finalScore() {
+  const score = state.score; if (!score?.mic) return { value: null, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: score?.reason || 'MICROPHONE NOT AVAILABLE' };
+  if (score.eligible < 1.5) return { value: null, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: 'NOT ENOUGH TIMED VOCAL WINDOWS' };
+  const value = Math.max(0, Math.min(100, Math.round(score.heard / score.eligible * 100)));
+  return { value, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: state.notes.length ? 'MIC ACTIVITY DURING ULTRASTAR NOTES' : 'MIC ACTIVITY DURING TIMED LYRICS' };
+}
 
 function setStatus(message, bad = false) { const node = $('status'); node.textContent = message; node.classList.toggle('bad', bad); }
 function logTimingPreset() {
@@ -131,7 +159,7 @@ function addToQueue(song) {
   setStatus(`${song.title} added to the playlist.`);
 }
 function selectQueue(index, autoStart = false) {
-  const song = state.queue[index]; if (!song) return; state.queueIndex = index; loadSong(song, autoStart); drawQueue();
+  const song = state.queue[index]; if (!song) return; clearResult(); state.queueIndex = index; loadSong(song, autoStart); drawQueue();
 }
 function nextInQueue(autoStart = false) {
   if (state.queueIndex + 1 >= state.queue.length) { if (autoStart) setStatus('Playlist complete. Add another song code to keep singing.'); return; }
@@ -163,17 +191,17 @@ function loadYoutubeApi() { const script = document.createElement('script'); scr
 const playerVars = { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, modestbranding: 1, cc_load_policy: 0, iv_load_policy: 3, origin: location.origin };
 function startPlayback() {
   if (!state.playerReady || !hasKaraoke(state.song)) { setStatus('This song needs a configured karaoke YouTube backing track before it can play.', true); return; }
-  state.autoStart = false; state.playbackClockBase = Math.max(0, Number(state.player.getCurrentTime()) || state.currentTime); state.playbackClockStartedAt = performance.now(); state.player.mute(); state.player.playVideo();
+  const restart = Boolean(state.result) || state.currentTime < .5 || state.player?.getPlayerState?.() === YT.PlayerState.ENDED; clearResult(); if (!state.score || restart) resetScore(); startMicScore(); state.autoStart = false; state.playbackClockBase = restart ? 0 : Math.max(0, Number(state.player.getCurrentTime()) || state.currentTime); state.playbackClockStartedAt = performance.now(); if (restart) state.player.seekTo(0, true); state.player.mute(); state.player.playVideo();
   if (state.karaokeReady) {
     state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume);
-    state.karaokePlayer.seekTo(Math.max(0, state.player.getCurrentTime() + state.audioOffset / 1000), true); state.karaokePlayer.playVideo();
+    state.karaokePlayer.seekTo(Math.max(0, (restart ? 0 : state.player.getCurrentTime()) + state.audioOffset / 1000), true); state.karaokePlayer.playVideo();
     setTimeout(() => syncKaraokeAudio(true), 250); setTimeout(() => syncKaraokeAudio(true), 900);
   }
   else setStatus('Official video is running muted; karaoke audio is still connecting…');
 }
 function setupPlayers(song) {
   if (!window.YT?.Player) { setStatus('YouTube player is still starting. Please try again in a moment.'); return; }
-  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) { if (!state.playbackClockStartedAt) { state.playbackClockBase = state.currentTime; state.playbackClockStartedAt = performance.now(); } syncKaraokeAudio(true); } if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) state.playbackClockStartedAt = 0; if (event.data === YT.PlayerState.ENDED) { state.karaokePlayer?.pauseVideo(); nextInQueue(true); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
+  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) { if (!state.playbackClockStartedAt) { state.playbackClockBase = state.currentTime; state.playbackClockStartedAt = performance.now(); } syncKaraokeAudio(true); } if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) state.playbackClockStartedAt = 0; if (event.data === YT.PlayerState.ENDED) finishSong(); if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
   if (state.player) { if (typeof state.player.loadVideoById === 'function') { state.player.loadVideoById(song.youtubeId); state.player.mute(); hideYoutubeCaptions(state.player); } } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
@@ -211,7 +239,7 @@ async function getNotes(song, token) {
   try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
-  state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
+  clearResult(); state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
   $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
@@ -250,8 +278,25 @@ function renderInterlude(root, fill, countdown) {
   root.style.setProperty('--interlude-fill', `${(Math.max(0, Math.min(1, fill)) * 100).toFixed(2)}%`);
   root.querySelector('.interlude-count').textContent = countdown ? String(countdown) : '';
 }
+function renderScore(root) {
+  const result = state.result; if (!result) return;
+  if (root.dataset.mode !== 'score') {
+    root.replaceChildren(); root.className = 'lyrics score-board'; root.dataset.mode = 'score';
+    const label = document.createElement('small'), value = document.createElement('strong'), grade = document.createElement('b'), mode = document.createElement('span'), detail = document.createElement('em'), next = document.createElement('i');
+    label.textContent = 'KARAOKE RESULT'; value.className = 'score-value'; grade.className = 'score-grade'; mode.className = 'score-mode'; detail.className = 'score-detail'; next.className = 'score-next'; root.append(label, value, grade, mode, detail, next);
+  }
+  const value = root.querySelector('.score-value'), grade = root.querySelector('.score-grade'); value.textContent = result.value === null ? '—' : String(result.value).padStart(3, '0'); grade.textContent = result.value === null ? 'NO SCORE' : result.value >= 85 ? 'SUPERB!' : result.value >= 65 ? 'GREAT!' : result.value >= 40 ? 'KEEP SINGING!' : 'WARM UP!'; root.querySelector('.score-mode').textContent = result.mode; root.querySelector('.score-detail').textContent = result.detail;
+  const remaining = Math.max(0, Math.ceil((result.until - performance.now()) / 1000)); root.querySelector('.score-next').textContent = result.hasNext ? `NEXT SONG IN ${remaining}` : 'ADD A SONG TO KEEP SINGING';
+}
+function finishSong() {
+  if (state.result || !state.song) return;
+  state.karaokePlayer?.pauseVideo(); state.playbackClockStartedAt = 0;
+  const hasNext = state.queueIndex + 1 < state.queue.length, result = finalScore(); state.result = { ...result, until: performance.now() + 5500, hasNext };
+  setStatus(result.value === null ? `Song complete. ${result.detail}.` : `Song complete. ${result.mode}: ${result.value}/100.`); drawLyrics();
+  if (hasNext) { const songId = state.song.id; state.resultTimer = setTimeout(() => { if (state.song?.id !== songId) return; clearResult(); nextInQueue(true); }, 5500); }
+}
 function drawLyrics() {
-  const root = $('lyrics'), adjusted = state.currentTime - state.lyricOffset / 1000;
+  const root = $('lyrics'); if (state.result) { renderScore(root); return; } const adjusted = state.currentTime - state.lyricOffset / 1000;
   let startedIndex = -1;
   for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) startedIndex = i; else break; }
   const activeUntil = lyricEndAt(startedIndex), active = startedIndex >= 0 && adjusted <= activeUntil;
@@ -299,7 +344,7 @@ function syncKaraokeAudio(force = false) {
 }
 function refreshPlaybackClock() {
   if (state.playerReady && state.player?.getCurrentTime) state.currentTime = getTimelineTime();
-  $('elapsed').textContent = toTime(state.currentTime); drawLyrics(); drawNotes(); syncKaraokeAudio();
+  sampleMicScore(); $('elapsed').textContent = toTime(state.currentTime); drawLyrics(); drawNotes(); syncKaraokeAudio();
 }
 function pollPlayer() {
   refreshPlaybackClock(); requestAnimationFrame(pollPlayer);
@@ -309,7 +354,7 @@ function bind() {
   $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
   $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
   $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
-  $('previous').addEventListener('click', () => { if (state.playerReady) { state.playbackClockBase = 0; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, state.audioOffset / 1000), true); } });
+  $('previous').addEventListener('click', () => { if (state.playerReady) { clearResult(); resetScore(); state.playbackClockBase = 0; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, state.audioOffset / 1000), true); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
   $('fullscreen').addEventListener('click', toggleFullscreen);

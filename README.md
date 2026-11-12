@@ -54,7 +54,7 @@ There is no universal public note-chart source with rights for commercial songs.
 : 4 4 4 line
 ```
 
-The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies only to the parsed UltraStar chart. The current test entries deliberately keep `ultraStarChartUrl` unset until an authorized source is available.
+The **NOTE-CHART DELAY** control is separate from **LYRIC DELAY**. It applies only to the parsed UltraStar chart. The commercial-song test entries deliberately keep `ultraStarChartUrl` unset until an authorized source is available. Code `48008` (**Code Monkey**) is a working, creator-licensed pitch-guide test: its chart is loaded from the official [UltraStar Deluxe open-song repository](https://github.com/UltraStar-Deluxe/songs), and the entry carries the chart attribution. The supplied song media and chart are CC BY-NC 3.0; do not remove that attribution or use it commercially.
 
 ## Operator calibration and Japanese readings
 
