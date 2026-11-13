@@ -254,7 +254,7 @@ function loadSong(song, autoStart = false) {
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
   $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
-  state.lyricOffset = Number($('lyricOffset').value); state.audioOffset = Number($('audioOffset').value); state.noteOffset = Number($('noteOffset').value); setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
+  setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
   const token = song.id; setupPlayers(song); getLyrics(song, token); getNotes(song, token); history.replaceState(null, '', `${location.pathname}?song=${encodeURIComponent(song.id)}`);
 }
 function updateWordFill(root, adjusted) { for (const word of root.querySelectorAll('[data-word-start]')) { const start = Number(word.dataset.wordStart), end = Number(word.dataset.wordEnd) || start + .1, progress = Math.max(0, Math.min(1, (adjusted - start) / Math.max(.01, end - start))); word.style.setProperty('--word-progress', progress); } }
