@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], chartMin: 0, chartMax: 0, chartCenter: 60, lyricOffset: 0, audioOffset: 0, noteOffset: 0, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], chartMin: 0, chartMax: 0, chartCenter: 60, lyricOffset: 0, audioOffset: 0, noteOffset: 0, lyricsSynced: false, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -143,6 +143,10 @@ function savedTiming(songId, kind) {
     return Number.isFinite(value) ? Math.max(-120000, Math.min(120000, Math.round(value))) : null;
   } catch { return null; }
 }
+function savedLyricsSynced(songId) {
+  try { const raw = localStorage.getItem(`star-sing:${songId}:lyrics-synced`); return raw === null ? null : Boolean(JSON.parse(raw)); } catch { return null; }
+}
+function songLyricsSynced(song) { const saved = savedLyricsSynced(song?.id); return saved === null ? Boolean(song?.lyricsSynced) : saved; }
 function exportCatalogWithSavedTimings() {
   if (!state.catalogDocument || !Array.isArray(state.catalogDocument.songs)) { setStatus('The catalog is not ready to export yet.', true); return; }
   const catalog = JSON.parse(JSON.stringify(state.catalogDocument));
@@ -152,11 +156,13 @@ function exportCatalogWithSavedTimings() {
       const value = savedTiming(song.id, kind);
       if (value !== null && song[field] !== value) { song[field] = value; updated++; }
     }
+    const synced = savedLyricsSynced(song.id);
+    if (synced !== null && Boolean(song.lyricsSynced) !== synced) { song.lyricsSynced = synced; updated++; }
   }
   const file = new Blob([`${JSON.stringify(catalog, null, 2)}\n`], { type: 'application/json' });
   const url = URL.createObjectURL(file), link = document.createElement('a');
   link.href = url; link.download = 'catalog.json'; document.body.append(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
-  setStatus(`Exported catalog.json with ${updated} saved timing ${updated === 1 ? 'value' : 'values'}. Yahoo Client ID and other private browser-only settings are not included.`);
+  setStatus(`Exported catalog.json with ${updated} saved calibration ${updated === 1 ? 'value' : 'values'}, including Synced Lyrics tags. Yahoo Client ID and other private browser-only settings are not included.`);
 }
 function selectValue(id, value) { const kind = Object.entries(timingFields).find(([, field]) => field.slider === id)?.[0]; if (kind) setTiming(kind, value, false); }
 function updatePlayEnabled() { $('play').disabled = !(state.playerReady && hasKaraoke(state.song)); }
@@ -277,7 +283,7 @@ function loadSong(song, autoStart = false) {
   clearResult(); state.song = song; state.lines = []; state.notes = []; state.chartMin = 0; state.chartMax = 0; state.chartCenter = 60; state.micPitch = null; state.lastLine = -2; state.nowPlayingShown = false; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
-  $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
+  $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes')); state.lyricsSynced = songLyricsSynced(song); $('operatorLyricsSynced').checked = state.lyricsSynced;
   setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
   const token = song.id; setupPlayers(song); getLyrics(song, token); getNotes(song, token); history.replaceState(null, '', `${location.pathname}?song=${encodeURIComponent(song.id)}`);
 }
@@ -423,7 +429,7 @@ function bind() {
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
   for (const [kind, field] of Object.entries(timingFields)) $(field.slider).addEventListener('input', event => setTiming(kind, event.target.value));
-  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); const limit = Number(state.song?.duration) || 36000; state.resetSeek = Math.max(0, Math.min(limit, Number($('operatorResetSeek').value) || 0)); $('operatorResetSeek').value = String(state.resetSeek); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? `Direct timing values saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s. Yahoo Client ID saved in this browser.` : `Direct timing values saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s.`); });
+  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); state.lyricsSynced = $('operatorLyricsSynced').checked; if (state.song) store(`star-sing:${state.song.id}:lyrics-synced`, state.lyricsSynced); const limit = Number(state.song?.duration) || 36000; state.resetSeek = Math.max(0, Math.min(limit, Number($('operatorResetSeek').value) || 0)); $('operatorResetSeek').value = String(state.resetSeek); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? `Direct timing values and Synced Lyrics tag saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s. Yahoo Client ID saved in this browser.` : `Direct timing values and Synced Lyrics tag saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s.`); });
   $('operatorExportCatalog').addEventListener('click', exportCatalogWithSavedTimings);
   $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
   addEventListener('resize', () => { drawNotes(); fitActiveLyric($('lyrics')); });

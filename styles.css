@@ -17,6 +17,8 @@
 /* Keep long Japanese context lines from consuming the active lyric's centre space. */
 .lyrics .before,.lyrics .after{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
 
+.operator-panel .sync-tag-label{grid-template-columns:1fr auto;align-items:center}.operator-panel .sync-tag-label input{width:16px;height:16px;accent-color:#41d7ca}.operator-panel .sync-tag-label b{grid-column:1/3;color:#91dcd2;font:700 8px var(--mono);letter-spacing:.35px}.book-column b.lyrics-unsynced{color:#8a8780}
+
 /* Player controls and queue overrides. */
 .screen-topline{position:relative}
 .karaoke-overlay{justify-content:flex-start;padding-top:16px}.karaoke-overlay h1{max-width:90%}.karaoke-overlay>p:not(.track-kicker){max-width:90%}

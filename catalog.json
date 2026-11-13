@@ -17,7 +17,8 @@
       "blurVideo": false,
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 13000,
-      "noteOffsetMs": 0
+      "noteOffsetMs": 0,
+      "lyricsSynced": true
     },
     {
       "id": "young-girl-a",
@@ -36,6 +37,7 @@
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 0,
       "noteOffsetMs": 0,
+      "lyricsSynced": true,
       "lyricSearch": [
         {
           "track_name": "少女A",
