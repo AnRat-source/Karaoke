@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, resetSeek: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, score: null, result: null, resultTimer: 0 };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -24,14 +24,24 @@ function startMicScore() {
   if (state.micAnalyser) { state.score.mic = true; state.micContext?.resume?.().catch(() => {}); return; }
   if (state.micPromise || !navigator.mediaDevices?.getUserMedia) { if (!navigator.mediaDevices?.getUserMedia) state.score.reason = 'MICROPHONE NOT SUPPORTED'; return; }
   state.micPromise = navigator.mediaDevices.getUserMedia({ audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true } }).then(stream => {
-    const Context = window.AudioContext || window.webkitAudioContext; state.micContext = new Context(); state.micAnalyser = state.micContext.createAnalyser(); state.micAnalyser.fftSize = 1024; state.micData = new Uint8Array(state.micAnalyser.fftSize); state.micContext.createMediaStreamSource(stream).connect(state.micAnalyser); state.micStream = stream; state.score.mic = true; state.micContext.resume().catch(() => {}); setStatus('Microphone score is active: sing during the highlighted lyric or note windows.');
+    const Context = window.AudioContext || window.webkitAudioContext; state.micContext = new Context(); state.micAnalyser = state.micContext.createAnalyser(); state.micAnalyser.fftSize = 2048; state.micData = new Uint8Array(state.micAnalyser.fftSize); state.micContext.createMediaStreamSource(stream).connect(state.micAnalyser); state.micStream = stream; state.score.mic = true; state.micContext.resume().catch(() => {}); setStatus('Microphone score and live pitch guide are active. Sing during the highlighted lyric or note windows.');
   }).catch(() => { if (state.score) state.score.reason = 'MICROPHONE PERMISSION NOT GRANTED'; }).finally(() => { state.micPromise = null; });
+}
+function estimatePitch(data, sampleRate, rms) {
+  if (rms < .012) return null;
+  const length = data.length, minLag = Math.max(2, Math.floor(sampleRate / 700)), maxLag = Math.min(length - 2, Math.floor(sampleRate / 82)); let bestLag = -1, best = -Infinity;
+  const correlationAt = lag => { let total = 0, count = 0; for (let i = 0; i < length - lag; i += 2) { total += (data[i] - 128) * (data[i + lag] - 128); count++; } return total / Math.max(1, count); };
+  for (let lag = minLag; lag <= maxLag; lag += 2) { const correlation = correlationAt(lag); if (correlation > best) { best = correlation; bestLag = lag; } }
+  for (let lag = Math.max(minLag, bestLag - 2); lag <= Math.min(maxLag, bestLag + 2); lag++) { const correlation = correlationAt(lag); if (correlation > best) { best = correlation; bestLag = lag; } }
+  const power = rms * rms * 128 * 128; if (bestLag < 0 || best / Math.max(1, power) < .45) return null;
+  const hz = sampleRate / bestLag, midi = 69 + 12 * Math.log2(hz / 440); return Number.isFinite(midi) && midi >= 28 && midi <= 100 ? { hz, midi } : null;
 }
 function sampleMicScore() {
   const score = state.score, now = performance.now(); if (!score) return; const elapsed = Math.min(.25, Math.max(0, (now - score.lastAt) / 1000)); score.lastAt = now;
-  if (!score.mic || !state.micAnalyser || !playbackIsActive() || !scoringWindow()) return;
+  if (!score.mic || !state.micAnalyser || !playbackIsActive()) { state.micPitch = null; return; }
   state.micAnalyser.getByteTimeDomainData(state.micData); let sum = 0; for (const value of state.micData) { const level = (value - 128) / 128; sum += level * level; }
-  const rms = Math.sqrt(sum / state.micData.length), strength = Math.max(0, Math.min(1, (rms - .012) / .06)); score.eligible += elapsed; score.heard += elapsed * strength; score.peak = Math.max(score.peak, rms);
+  const rms = Math.sqrt(sum / state.micData.length); if (now - state.lastPitchAt > 80) { state.lastPitchAt = now; state.micPitch = estimatePitch(state.micData, state.micContext.sampleRate, rms); }
+  if (!scoringWindow()) return; const strength = Math.max(0, Math.min(1, (rms - .012) / .06)); score.eligible += elapsed; score.heard += elapsed * strength; score.peak = Math.max(score.peak, rms);
 }
 function finalScore() {
   const score = state.score; if (!score?.mic) return { value: null, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: score?.reason || 'MICROPHONE NOT AVAILABLE' };
@@ -239,7 +249,7 @@ async function getNotes(song, token) {
   try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
-  clearResult(); state.song = song; state.lines = []; state.notes = []; state.lastLine = -2; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
+  clearResult(); state.song = song; state.lines = []; state.notes = []; state.micPitch = null; state.lastLine = -2; state.nowPlayingShown = false; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
   $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
@@ -306,7 +316,7 @@ function drawLyrics() {
   }
   state.lastLine = -1;
   const next = state.lines[startedIndex + 1], silentFor = startedIndex >= 0 ? Math.max(0, adjusted - activeUntil) : Math.max(0, state.currentTime);
-  if (silentFor < 5) { renderNowPlaying(root); return; }
+  if (silentFor < 5 && !state.nowPlayingShown) { renderNowPlaying(root); state.nowPlayingShown = true; return; }
   const interludeStartsAt = startedIndex >= 0 ? activeUntil + 5 : 5, untilNext = next ? Math.max(0, next.time - adjusted) : Infinity;
   const fill = next ? (adjusted - interludeStartsAt) / Math.max(.1, next.time - interludeStartsAt) : (silentFor - 5) / 20;
   renderInterlude(root, fill, untilNext > 0 && untilNext <= 5 ? Math.ceil(untilNext) : 0);
@@ -319,7 +329,10 @@ function drawNotes() {
   if (!state.notes.length) { ctx.fillStyle = '#94c3bd'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('NO ULTRASTAR CHART CONFIGURED FOR THIS SONG', w / 2, h / 2); return; }
   const t = state.currentTime - state.noteOffset / 1000, scale = 55, cursor = w * .25, center = state.notes.find(note => note.start + note.duration > t)?.midi || 60;
   for (const note of state.notes) { const x = cursor + (note.start - t) * scale, y = h / 2 - (note.midi - center) * 9; if (x > w || x + note.duration * scale < 0) continue; ctx.fillStyle = note.start <= t && t <= note.start + note.duration ? '#ffd35a' : '#41d7ca'; ctx.fillRect(x, y - 5, Math.max(3, note.duration * scale - 2), 10); }
-  ctx.strokeStyle = '#fff4c4'; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
+  ctx.strokeStyle = '#fff4c4'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
+  if (state.micPitch) { const y = Math.max(8, Math.min(h - 8, h / 2 - (state.micPitch.midi - center) * 9)), names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'], rounded = Math.round(state.micPitch.midi), name = `${names[(rounded % 12 + 12) % 12]}${Math.floor(rounded / 12) - 1}`;
+    ctx.save(); ctx.strokeStyle = '#d98cff'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#edc5ff'; ctx.beginPath(); ctx.arc(cursor, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#edc5ff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = cursor > w - 58 ? 'right' : 'left'; ctx.fillText(`${name} ${Math.round(state.micPitch.hz)}Hz`, cursor + (cursor > w - 58 ? -8 : 8), Math.max(10, y - 7)); ctx.restore();
+  }
 }
 function playbackIsActive() { return state.player?.getPlayerState?.() === YT.PlayerState.PLAYING || $('play')?.classList.contains('playing'); }
 function useKaraokeClock(visualTime, audioTime) {

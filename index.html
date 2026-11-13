@@ -7,8 +7,8 @@
   <meta name="description" content="A retro karaoke machine interface powered by official YouTube embeds and LRCLIB timed lyrics.">
   <title>RatUTA</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=score2">
-  <script defer src="app.js?v=score2"></script>
+  <link rel="stylesheet" href="styles.css?v=pitchlane1">
+  <script defer src="app.js?v=pitchlane1"></script>
 </head>
 <body>
   <div class="video-atmosphere" aria-hidden="true"><video id="backdropVideo" autoplay muted loop playsinline></video><div class="video-fallback"></div></div>
@@ -40,6 +40,10 @@
               <div id="karaokePlayer" class="karaoke-audio-player" aria-hidden="true"></div>
               <div class="screen-idle ratuta-welcome" id="screenIdle"><span class="sparkle">✦</span><b><small>WELCOME TO</small><span>Rat<em>歌</em></span></b><small>RATUTA VIDEO KARAOKE · CHOOSE A SONG CODE</small></div>
               <div class="note-key" aria-hidden="true"><span>ULTRASTAR NOTE GUIDE</span><i></i><small>TARGET PITCH</small><b>│</b><small>NOW</small></div>
+              <section class="note-chart-overlay" aria-label="UltraStar note chart">
+                <div class="pitch-head"><span>VOCAL GUIDE / ULTRASTAR</span><span id="noteStatus">NO CHART SELECTED</span></div>
+                <canvas id="pitchCanvas" height="100"></canvas>
+              </section>
               <div class="karaoke-overlay">
                 <p class="track-kicker" id="songEyebrow">SELECT A NUMBER</p>
                 <h1 id="trackTitle">KARAOKE NIGHT</h1>
@@ -78,11 +82,6 @@
             <button id="operatorExportCatalog" type="button">EXPORT CATALOG.JSON WITH SAVED TIMINGS</button>
           </aside>
           <p class="machine-status" id="status">Pick a song. Its official YouTube video plays here; timed lyrics are requested from LRCLIB only when selected.</p>
-        </section>
-        <section class="pitch-bay" aria-label="Note chart">
-          <div class="pitch-head"><span>VOCAL GUIDE / ULTRASTAR</span><span id="noteStatus">NO CHART SELECTED</span></div>
-          <canvas id="pitchCanvas" height="140"></canvas>
-          <p>UltraStar charts guide target notes. The end score uses microphone activity during chart notes, or timed lyric windows when a chart is unavailable.</p>
         </section>
       </section>
     </main>

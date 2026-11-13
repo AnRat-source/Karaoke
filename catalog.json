@@ -1,13 +1,168 @@
 {
   "version": 3,
   "songs": [
-    { "id": "counting-stars", "code": "48001", "title": "Counting Stars", "artist": "OneRepublic", "genre": "Pop Rock", "duration": 257, "youtubeId": "hT_nvWreIhg", "youtubeUrl": "https://www.youtube.com/watch?v=hT_nvWreIhg", "karaokeYoutubeId": "AVNrNxd9wkI", "karaokeProvider": "Zoom Karaoke", "karaokeOffsetMs": 0, "key": "C♯ minor", "blurVideo": false, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0 },
-    { "id": "young-girl-a", "code": "48002", "title": "Young Girl A (少女A)", "artist": "siinamota feat. Kagamine Rin", "genre": "Vocaloid", "duration": 233, "youtubeId": "VjsPYyUWUwY", "youtubeUrl": "https://www.youtube.com/watch?v=VjsPYyUWUwY", "karaokeYoutubeId": "d7Vof2_xDFM", "karaokeProvider": "KWAIRU", "karaokeOffsetMs": 0, "key": "E minor", "blurVideo": true, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0, "lyricSearch": [{ "track_name": "少女A", "artist_name": "椎名もた" }] },
-    { "id": "kick-back", "code": "48003", "title": "KICK BACK", "artist": "Kenshi Yonezu", "genre": "J-Pop", "duration": 213, "youtubeId": "M2cckDmNLMI", "youtubeUrl": "https://www.youtube.com/watch?v=M2cckDmNLMI", "karaokeYoutubeId": "Z0d4ez8uydA", "karaokeProvider": "KARAOKE UtaCchaO", "karaokeOffsetMs": 0, "key": "F minor", "blurVideo": false, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0, "lyricSearch": [{ "track_name": "KICK BACK", "artist_name": "米津玄師" }] },
-    { "id": "blinding-lights", "code": "48004", "title": "Blinding Lights", "artist": "The Weeknd", "genre": "Synth-pop", "duration": 200, "youtubeId": "4NRXx6U8ABQ", "youtubeUrl": "https://www.youtube.com/watch?v=4NRXx6U8ABQ", "karaokeYoutubeId": "-JA6H2-yBm4", "karaokeProvider": "Zoom Karaoke", "karaokeOffsetMs": 0, "key": "F minor", "blurVideo": false, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0 },
-    { "id": "bohemian-rhapsody", "code": "48005", "title": "Bohemian Rhapsody", "artist": "Queen", "genre": "Rock", "duration": 354, "youtubeId": "fJ9rUzIMcZQ", "youtubeUrl": "https://www.youtube.com/watch?v=fJ9rUzIMcZQ", "karaokeYoutubeId": "yvEcMrstp80", "karaokeProvider": "Zoom Karaoke", "karaokeOffsetMs": 0, "key": "B♭ major", "blurVideo": true, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0 },
-    { "id": "take-on-me", "code": "48006", "title": "Take On Me", "artist": "a-ha", "genre": "Synth-pop", "duration": 225, "youtubeId": "djV11Xbc914", "youtubeUrl": "https://www.youtube.com/watch?v=djV11Xbc914", "karaokeYoutubeId": "B5j-PnzNYlA", "karaokeProvider": "Zoom Karaoke", "karaokeOffsetMs": 0, "key": "A major", "blurVideo": false, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0 },
-    { "id": "usseewa", "code": "48007", "title": "Usseewa (うっせぇわ)", "artist": "Ado", "genre": "J-Pop", "duration": 195, "youtubeId": "Qp3b-RXtz4w", "youtubeUrl": "https://www.youtube.com/watch?v=Qp3b-RXtz4w", "karaokeYoutubeId": "HwqmnSd9Msk", "karaokeProvider": "KWAIRU", "karaokeOffsetMs": 0, "key": "D minor", "blurVideo": true, "ultraStarChartUrl": null, "lyricOffsetMs": 0, "noteOffsetMs": 0, "lyricSearch": [{ "track_name": "うっせぇわ", "artist_name": "Ado" }] },
-    { "id": "code-monkey", "code": "48008", "title": "Code Monkey", "artist": "Jonathan Coulton", "genre": "Creative Commons test", "duration": 186, "youtubeId": "qYodWEKCuGg", "youtubeUrl": "https://www.youtube.com/watch?v=qYodWEKCuGg", "karaokeYoutubeId": "qYodWEKCuGg", "karaokeProvider": "Creator-licensed source", "karaokeOffsetMs": 0, "key": "C minor", "blurVideo": false, "ultraStarChartUrl": "https://raw.githubusercontent.com/UltraStar-Deluxe/songs/master/Creative%20Commons/Jonathan%20Coulton%20-%20Code%20Monkey/song.txt", "ultraStarAttribution": "Jonathan Coulton – Code Monkey chart, CC BY-NC 3.0; chart by Julian W. (SKillMaster), via UltraStar-Deluxe/songs", "lyricOffsetMs": 0, "noteOffsetMs": 0 }
+    {
+      "id": "counting-stars",
+      "code": "48001",
+      "title": "Counting Stars",
+      "artist": "OneRepublic",
+      "genre": "Pop Rock",
+      "duration": 257,
+      "youtubeId": "hT_nvWreIhg",
+      "youtubeUrl": "https://www.youtube.com/watch?v=hT_nvWreIhg",
+      "karaokeYoutubeId": "AVNrNxd9wkI",
+      "karaokeProvider": "Zoom Karaoke",
+      "karaokeOffsetMs": 0,
+      "key": "C♯ minor",
+      "blurVideo": false,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 13000,
+      "noteOffsetMs": 0
+    },
+    {
+      "id": "young-girl-a",
+      "code": "48002",
+      "title": "Young Girl A (少女A)",
+      "artist": "siinamota feat. Kagamine Rin",
+      "genre": "Vocaloid",
+      "duration": 233,
+      "youtubeId": "VjsPYyUWUwY",
+      "youtubeUrl": "https://www.youtube.com/watch?v=VjsPYyUWUwY",
+      "karaokeYoutubeId": "d7Vof2_xDFM",
+      "karaokeProvider": "KWAIRU",
+      "karaokeOffsetMs": 0,
+      "key": "E minor",
+      "blurVideo": true,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 0,
+      "noteOffsetMs": 0,
+      "lyricSearch": [
+        {
+          "track_name": "少女A",
+          "artist_name": "椎名もた"
+        }
+      ]
+    },
+    {
+      "id": "kick-back",
+      "code": "48003",
+      "title": "KICK BACK",
+      "artist": "Kenshi Yonezu",
+      "genre": "J-Pop",
+      "duration": 213,
+      "youtubeId": "M2cckDmNLMI",
+      "youtubeUrl": "https://www.youtube.com/watch?v=M2cckDmNLMI",
+      "karaokeYoutubeId": "Z0d4ez8uydA",
+      "karaokeProvider": "KARAOKE UtaCchaO",
+      "karaokeOffsetMs": 0,
+      "key": "F minor",
+      "blurVideo": false,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 0,
+      "noteOffsetMs": 0,
+      "lyricSearch": [
+        {
+          "track_name": "KICK BACK",
+          "artist_name": "米津玄師"
+        }
+      ]
+    },
+    {
+      "id": "blinding-lights",
+      "code": "48004",
+      "title": "Blinding Lights",
+      "artist": "The Weeknd",
+      "genre": "Synth-pop",
+      "duration": 200,
+      "youtubeId": "4NRXx6U8ABQ",
+      "youtubeUrl": "https://www.youtube.com/watch?v=4NRXx6U8ABQ",
+      "karaokeYoutubeId": "-JA6H2-yBm4",
+      "karaokeProvider": "Zoom Karaoke",
+      "karaokeOffsetMs": 0,
+      "key": "F minor",
+      "blurVideo": false,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 0,
+      "noteOffsetMs": 0
+    },
+    {
+      "id": "bohemian-rhapsody",
+      "code": "48005",
+      "title": "Bohemian Rhapsody",
+      "artist": "Queen",
+      "genre": "Rock",
+      "duration": 354,
+      "youtubeId": "fJ9rUzIMcZQ",
+      "youtubeUrl": "https://www.youtube.com/watch?v=fJ9rUzIMcZQ",
+      "karaokeYoutubeId": "yvEcMrstp80",
+      "karaokeProvider": "Zoom Karaoke",
+      "karaokeOffsetMs": 0,
+      "key": "B♭ major",
+      "blurVideo": true,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 0,
+      "noteOffsetMs": 0
+    },
+    {
+      "id": "take-on-me",
+      "code": "48006",
+      "title": "Take On Me",
+      "artist": "a-ha",
+      "genre": "Synth-pop",
+      "duration": 225,
+      "youtubeId": "djV11Xbc914",
+      "youtubeUrl": "https://www.youtube.com/watch?v=djV11Xbc914",
+      "karaokeYoutubeId": "B5j-PnzNYlA",
+      "karaokeProvider": "Zoom Karaoke",
+      "karaokeOffsetMs": 0,
+      "key": "A major",
+      "blurVideo": false,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 0,
+      "noteOffsetMs": 0
+    },
+    {
+      "id": "usseewa",
+      "code": "48007",
+      "title": "Usseewa (うっせぇわ)",
+      "artist": "Ado",
+      "genre": "J-Pop",
+      "duration": 195,
+      "youtubeId": "Qp3b-RXtz4w",
+      "youtubeUrl": "https://www.youtube.com/watch?v=Qp3b-RXtz4w",
+      "karaokeYoutubeId": "HwqmnSd9Msk",
+      "karaokeProvider": "KWAIRU",
+      "karaokeOffsetMs": 5000,
+      "key": "D minor",
+      "blurVideo": true,
+      "ultraStarChartUrl": null,
+      "lyricOffsetMs": 0,
+      "noteOffsetMs": 0,
+      "lyricSearch": [
+        {
+          "track_name": "うっせぇわ",
+          "artist_name": "Ado"
+        }
+      ]
+    },
+    {
+      "id": "code-monkey",
+      "code": "48008",
+      "title": "Code Monkey",
+      "artist": "Jonathan Coulton",
+      "genre": "Creative Commons test",
+      "duration": 186,
+      "youtubeId": "qYodWEKCuGg",
+      "youtubeUrl": "https://www.youtube.com/watch?v=qYodWEKCuGg",
+      "karaokeYoutubeId": "qYodWEKCuGg",
+      "karaokeProvider": "Creator-licensed source",
+      "karaokeOffsetMs": 0,
+      "key": "C minor",
+      "blurVideo": false,
+      "ultraStarChartUrl": "https://raw.githubusercontent.com/UltraStar-Deluxe/songs/master/Creative%20Commons/Jonathan%20Coulton%20-%20Code%20Monkey/song.txt",
+      "ultraStarAttribution": "Jonathan Coulton – Code Monkey chart, CC BY-NC 3.0; chart by Julian W. (SKillMaster), via UltraStar-Deluxe/songs",
+      "lyricOffsetMs": 3800,
+      "noteOffsetMs": 3800
+    }
   ]
 }
