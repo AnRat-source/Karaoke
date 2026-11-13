@@ -120,14 +120,14 @@ function parseUltraStar(source) {
 }
 const timingFields = { lyrics: { slider: 'lyricOffset', operator: 'operatorLyricOffset', state: 'lyricOffset' }, audio: { slider: 'audioOffset', operator: 'operatorAudioOffset', state: 'audioOffset' }, notes: { slider: 'noteOffset', operator: 'operatorNoteOffset', state: 'noteOffset' } };
 const catalogTimingFields = { lyrics: 'lyricOffsetMs', audio: 'karaokeOffsetMs', notes: 'noteOffsetMs' };
-function catalogTimingSignature(catalog) {
-  return JSON.stringify((Array.isArray(catalog?.songs) ? catalog.songs : []).map(song => [song.id, Number(song.lyricOffsetMs) || 0, Number(song.karaokeOffsetMs) || 0, Number(song.noteOffsetMs) || 0]));
-}
 function syncCatalogTimingSource(catalog) {
-  const key = 'star-sing:catalog-timing-signature', signature = catalogTimingSignature(catalog);
-  if (restore(key, '') === signature) return;
-  for (const song of Array.isArray(catalog?.songs) ? catalog.songs : []) for (const kind of Object.keys(catalogTimingFields)) forget(`star-sing:${song.id}:${kind}`);
-  store(key, signature);
+  const key = 'star-sing:catalog-timing-signatures', previous = restore(key, {}), next = {};
+  for (const song of Array.isArray(catalog?.songs) ? catalog.songs : []) {
+    const signature = JSON.stringify([Number(song.lyricOffsetMs) || 0, Number(song.karaokeOffsetMs) || 0, Number(song.noteOffsetMs) || 0]);
+    next[song.id] = signature;
+    if (previous?.[song.id] !== signature) for (const kind of Object.keys(catalogTimingFields)) forget(`star-sing:${song.id}:${kind}`);
+  }
+  store(key, next);
 }
 function songOffset(kind) { const defaults = { lyrics: state.song?.lyricOffsetMs || 0, audio: state.song?.karaokeOffsetMs || 0, notes: state.song?.noteOffsetMs || 0 }; return restore(`star-sing:${state.song?.id}:${kind}`, defaults[kind]); }
 function setTiming(kind, rawValue, persist = true) {
