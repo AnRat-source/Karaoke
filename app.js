@@ -56,6 +56,7 @@ function logTimingPreset() {
   console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset }));
 }
 function hideYoutubeCaptions(player) { try { player?.unloadModule?.('captions'); player?.unloadModule?.('cc'); } catch {} }
+function setNoteChartVisible(visible) { $('noteChartOverlay').hidden = !visible; }
 const hasKanji = text => /[\u3400-\u9fff\uf900-\ufaff]/.test(text);
 function appendFuriganaWords(root, words) {
   root.replaceChildren();
@@ -243,10 +244,10 @@ async function getLyrics(song, token) {
   } catch { if (token === state.song?.id) { state.lines = []; state.lastLine = -2; $('lyricStatus').textContent = 'LYRICS: UNAVAILABLE'; drawLyrics(); } }
 }
 async function getNotes(song, token) {
-  state.notes = [];
+  state.notes = []; setNoteChartVisible(false);
   if (!validUrl(song.ultraStarChartUrl)) { $('noteStatus').textContent = 'ULTRASTAR CHART NOT CONFIGURED'; drawNotes(); return; }
   $('noteStatus').textContent = 'LOADING ULTRASTAR…';
-  try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; drawNotes(); } }
+  try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; setNoteChartVisible(Boolean(state.notes.length)); drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; setNoteChartVisible(false); drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
   clearResult(); state.song = song; state.lines = []; state.notes = []; state.micPitch = null; state.lastLine = -2; state.nowPlayingShown = false; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
@@ -324,7 +325,7 @@ function drawLyrics() {
 function drawNotes() {
   const rect = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 2), width = Math.max(1, Math.floor(rect.width * dpr)), height = Math.max(1, Math.floor(rect.height * dpr));
   if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = width / dpr, h = height / dpr; ctx.fillStyle = '#081013'; ctx.fillRect(0, 0, w, h); ctx.strokeStyle = '#1b5455'; ctx.lineWidth = 1;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = width / dpr, h = height / dpr; ctx.clearRect(0, 0, w, h); ctx.strokeStyle = '#1b545588'; ctx.lineWidth = 1;
   for (let y = 18; y < h; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
   if (!state.notes.length) { ctx.fillStyle = '#94c3bd'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('NO ULTRASTAR CHART CONFIGURED FOR THIS SONG', w / 2, h / 2); return; }
   const t = state.currentTime - state.noteOffset / 1000, scale = 55, cursor = w * .25, center = state.notes.find(note => note.start + note.duration > t)?.midi || 60;
