@@ -244,9 +244,15 @@ async function getLyrics(song, token) {
   const aliases = song.lyricSearch || [];
   try {
     let data;
-    for (const candidate of [exact, ...aliases]) {
-      const response = await fetch(`https://lrclib.net/api/get?${new URLSearchParams({ ...candidate, duration: String(song.duration) })}`, { cache: 'no-store', credentials: 'omit' });
-      if (response.ok) { const match = await response.json(); if (match.syncedLyrics) { data = match; break; } }
+    if (Number.isFinite(Number(song.lyricLrclibId))) {
+      const response = await fetch(`https://lrclib.net/api/get/${encodeURIComponent(song.lyricLrclibId)}`, { cache: 'no-store', credentials: 'omit' });
+      if (response.ok) { const match = await response.json(); if (match.syncedLyrics) data = match; }
+    }
+    if (!data) {
+      for (const candidate of [exact, ...aliases]) {
+        const response = await fetch(`https://lrclib.net/api/get?${new URLSearchParams({ ...candidate, duration: String(song.duration) })}`, { cache: 'no-store', credentials: 'omit' });
+        if (response.ok) { const match = await response.json(); if (match.syncedLyrics) { data = match; break; } }
+      }
     }
     if (!data) {
       const terms = [exact, ...aliases].map(candidate => `${candidate.artist_name || ''} ${candidate.track_name || ''}`.trim());
@@ -292,6 +298,14 @@ function appendLyricLine(root, line, className) {
   } else appendLyricText(row, line.text);
   root.append(row);
 }
+function fitActiveLyric(root) {
+  const active = root.querySelector('.active'); if (!active) return;
+  active.style.removeProperty('font-size');
+  const available = Math.max(1, root.clientWidth - 8), required = active.scrollWidth;
+  if (required <= available) return;
+  const size = parseFloat(getComputedStyle(active).fontSize) || 16;
+  active.style.fontSize = `${Math.max(12, size * available / required).toFixed(2)}px`;
+}
 function renderNowPlaying(root) {
   if (root.dataset.mode === 'now-playing') return;
   root.replaceChildren(); root.className = 'lyrics now-playing'; root.dataset.mode = 'now-playing';
@@ -330,7 +344,7 @@ function drawLyrics() {
   for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) startedIndex = i; else break; }
   const activeUntil = lyricEndAt(startedIndex), active = startedIndex >= 0 && adjusted <= activeUntil;
   if (active) {
-    if (startedIndex !== state.lastLine || root.dataset.mode) { state.lastLine = startedIndex; root.replaceChildren(); root.className = 'lyrics'; delete root.dataset.mode; appendLyricLine(root, state.lines[startedIndex - 1], 'before'); appendLyricLine(root, state.lines[startedIndex], 'active'); appendLyricLine(root, state.lines[startedIndex + 1], 'after'); }
+    if (startedIndex !== state.lastLine || root.dataset.mode) { state.lastLine = startedIndex; root.replaceChildren(); root.className = 'lyrics'; delete root.dataset.mode; appendLyricLine(root, state.lines[startedIndex - 1], 'before'); appendLyricLine(root, state.lines[startedIndex], 'active'); appendLyricLine(root, state.lines[startedIndex + 1], 'after'); fitActiveLyric(root); }
     updateWordFill(root, adjusted); return;
   }
   state.lastLine = -1;
@@ -405,7 +419,7 @@ function bind() {
   $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); const limit = Number(state.song?.duration) || 36000; state.resetSeek = Math.max(0, Math.min(limit, Number($('operatorResetSeek').value) || 0)); $('operatorResetSeek').value = String(state.resetSeek); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? `Direct timing values saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s. Yahoo Client ID saved in this browser.` : `Direct timing values saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s.`); });
   $('operatorExportCatalog').addEventListener('click', exportCatalogWithSavedTimings);
   $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
-  addEventListener('resize', drawNotes);
+  addEventListener('resize', () => { drawNotes(); fitActiveLyric($('lyrics')); });
 }
 function startClock() { const render = () => { $('clock').textContent = new Intl.DateTimeFormat([], { hour: '2-digit', minute: '2-digit' }).format(new Date()); }; render(); setInterval(render, 1000); }
 function startBackdrop() { const clips = ['https://cdn.coverr.co/videos/coverr-aerial-view-of-a-city-at-night-1573/1080p.mp4', 'https://cdn.coverr.co/videos/coverr-neon-lights-in-the-city-1571/1080p.mp4']; const video = $('backdropVideo'); video.src = clips[Math.floor(Math.random() * clips.length)]; video.play().catch(() => {}); }

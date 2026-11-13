@@ -11,6 +11,9 @@
 .ratuta-brand{gap:7px;min-width:116px}.ratuta-brand .brand-star{font-size:25px}.ratuta-word{font-family:var(--display);font-size:clamp(23px,2.1vw,32px);line-height:1;color:#fff4c4;letter-spacing:-1px}.ratuta-word em,.ratuta-welcome em{font-style:normal;color:var(--gold);text-shadow:0 0 12px #ffdb75}.ratuta-brand small{align-self:end;margin:0 0 2px 1px;color:#ffb7a0;font:700 7px var(--mono);letter-spacing:1.4px}.ratuta-welcome b{display:grid;gap:2px}.ratuta-welcome b small{color:#78ddd1;font:700 9px var(--mono);letter-spacing:2.7px}.ratuta-welcome b span{font:clamp(30px,5.4vw,62px)/.95 var(--display);letter-spacing:-2px}
 .ratuta-word em,.ratuta-welcome em{color:#c36cff;text-shadow:0 0 13px #9b42ff}.machine-marquee{box-shadow:0 7px 0 #1a090b,0 0 0 4px #722b27,0 0 30px #ae5dffb8!important}.ratuta-brand .brand-star{color:#d99aff;text-shadow:0 0 12px #b555ff}.song-row.active{box-shadow:inset 5px 0 #c36cff!important}.search-results .song-row:hover,input[type=search]:focus{border-color:#c987ff!important;box-shadow:0 0 0 2px #ad5dff55!important}.note-key{border-color:#d391ff99!important;box-shadow:0 0 11px #ad5dff55!important}.fullscreen-button.active{box-shadow:0 0 12px #ad5dff99!important}
 
+/* The document-level CRT layer cannot enter fullscreen with the player, so the player owns a matching layer there. */
+.player-scanlines{display:none}.lyrics .active{white-space:nowrap;overflow:visible}.player-viewport:fullscreen .player-scanlines{display:block;position:absolute;inset:0;z-index:5;pointer-events:none;opacity:.16;background:repeating-linear-gradient(0deg,transparent 0 2px,#000 3px 4px),radial-gradient(ellipse at center,transparent 35%,#0009 100%);mix-blend-mode:multiply}
+
 /* Player controls and queue overrides. */
 .screen-topline{position:relative}
 .karaoke-overlay{justify-content:flex-start;padding-top:16px}.karaoke-overlay h1{max-width:90%}.karaoke-overlay>p:not(.track-kicker){max-width:90%}

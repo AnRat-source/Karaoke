@@ -7,8 +7,8 @@
   <meta name="description" content="A retro karaoke machine interface powered by official YouTube embeds and LRCLIB timed lyrics.">
   <title>RatUTA</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=pitchlane2">
-  <script defer src="app.js?v=timing-source2"></script>
+  <link rel="stylesheet" href="styles.css?v=fullscreen-crt1">
+  <script defer src="app.js?v=lyric-source2"></script>
 </head>
 <body>
   <div class="video-atmosphere" aria-hidden="true"><video id="backdropVideo" autoplay muted loop playsinline></video><div class="video-fallback"></div></div>
@@ -49,6 +49,7 @@
                 <p id="trackInfo">Official video playback · synced lyrics when available</p>
                 <div class="lyrics" id="lyrics" aria-live="polite"><span>♪ READY WHEN YOU ARE ♪</span></div>
               </div>
+              <div class="player-scanlines" aria-hidden="true"></div>
             </div>
             <div class="screen-footer"><span id="elapsed">0:00</span><span id="lyricStatus">LYRICS: WAITING</span><span id="duration">0:00</span></div>
           </div>

@@ -3,7 +3,7 @@ const root = document.getElementById('bookList');
 let songs = [];
 function draw() {
   const query = document.getElementById('bookSearch').value.trim().toLowerCase();
-  const filtered = songs.filter(song => `${song.code} ${song.title} ${song.artist}`.toLowerCase().includes(query));
+  const filtered = songs.filter(song => `${song.code} ${song.title} ${song.artist}`.toLowerCase().includes(query)).sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }));
   root.replaceChildren();
   if (!filtered.length) { const p = document.createElement('p'); p.textContent = 'NO SONG FOUND.'; root.append(p); return; }
   const columnCount = Math.min(3, Math.max(1, Math.ceil(filtered.length / 8)));
