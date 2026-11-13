@@ -68,7 +68,8 @@
           "track_name": "KICK BACK",
           "artist_name": "米津玄師"
         }
-      ]
+      ],
+      "lyricsSynced": true
     },
     {
       "id": "blinding-lights",
@@ -85,8 +86,9 @@
       "key": "F minor",
       "blurVideo": false,
       "ultraStarChartUrl": null,
-      "lyricOffsetMs": 0,
-      "noteOffsetMs": 0
+      "lyricOffsetMs": 10000,
+      "noteOffsetMs": 0,
+      "lyricsSynced": true
     },
     {
       "id": "bohemian-rhapsody",
@@ -122,7 +124,8 @@
       "blurVideo": false,
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 0,
-      "noteOffsetMs": 0
+      "noteOffsetMs": 0,
+      "lyricsSynced": true
     },
     {
       "id": "usseewa",
@@ -147,7 +150,8 @@
           "track_name": "うっせぇわ",
           "artist_name": "Ado"
         }
-      ]
+      ],
+      "lyricsSynced": true
     },
     {
       "id": "the-greatest-show",
@@ -183,7 +187,7 @@
       "key": "G major",
       "blurVideo": false,
       "ultraStarChartUrl": null,
-      "lyricOffsetMs": 0,
+      "lyricOffsetMs": 11000,
       "noteOffsetMs": 0,
       "lyricLrclibId": 34300414
     },
@@ -318,7 +322,8 @@
       "ultraStarChartUrl": "https://raw.githubusercontent.com/UltraStar-Deluxe/songs/master/Creative%20Commons/Jonathan%20Coulton%20-%20Code%20Monkey/song.txt",
       "ultraStarAttribution": "Jonathan Coulton – Code Monkey chart, CC BY-NC 3.0; chart by Julian W. (SKillMaster), via UltraStar-Deluxe/songs",
       "lyricOffsetMs": 3800,
-      "noteOffsetMs": 3800
+      "noteOffsetMs": 3800,
+      "lyricsSynced": true
     }
   ]
 }
