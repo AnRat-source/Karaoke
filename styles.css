@@ -14,6 +14,9 @@
 /* The document-level CRT layer cannot enter fullscreen with the player, so the player owns a matching layer there. */
 .player-scanlines{display:none}.lyrics .active{white-space:nowrap;overflow:visible}.player-viewport:fullscreen .player-scanlines{display:block;position:absolute;inset:0;z-index:5;pointer-events:none;opacity:.16;background:repeating-linear-gradient(0deg,transparent 0 2px,#000 3px 4px),radial-gradient(ellipse at center,transparent 35%,#0009 100%);mix-blend-mode:multiply}
 
+/* Keep long Japanese context lines from consuming the active lyric's centre space. */
+.lyrics .before,.lyrics .after{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+
 /* Player controls and queue overrides. */
 .screen-topline{position:relative}
 .karaoke-overlay{justify-content:flex-start;padding-top:16px}.karaoke-overlay h1{max-width:90%}.karaoke-overlay>p:not(.track-kicker){max-width:90%}
