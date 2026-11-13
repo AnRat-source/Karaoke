@@ -9,6 +9,7 @@ const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 const store = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 const restore = (key, fallback) => { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } };
+const forget = key => { try { localStorage.removeItem(key); } catch {} };
 const validUrl = value => { try { return new URL(value).protocol === 'https:'; } catch { return false; } };
 const hasKaraoke = song => Boolean(song?.karaokeYoutubeId);
 function resetScore() { state.score = { eligible: 0, heard: 0, pitchCredit: 0, pitchVoiced: 0, peak: 0, lastAt: performance.now(), mic: Boolean(state.micAnalyser), reason: '' }; }
@@ -119,6 +120,15 @@ function parseUltraStar(source) {
 }
 const timingFields = { lyrics: { slider: 'lyricOffset', operator: 'operatorLyricOffset', state: 'lyricOffset' }, audio: { slider: 'audioOffset', operator: 'operatorAudioOffset', state: 'audioOffset' }, notes: { slider: 'noteOffset', operator: 'operatorNoteOffset', state: 'noteOffset' } };
 const catalogTimingFields = { lyrics: 'lyricOffsetMs', audio: 'karaokeOffsetMs', notes: 'noteOffsetMs' };
+function catalogTimingSignature(catalog) {
+  return JSON.stringify((Array.isArray(catalog?.songs) ? catalog.songs : []).map(song => [song.id, Number(song.lyricOffsetMs) || 0, Number(song.karaokeOffsetMs) || 0, Number(song.noteOffsetMs) || 0]));
+}
+function syncCatalogTimingSource(catalog) {
+  const key = 'star-sing:catalog-timing-signature', signature = catalogTimingSignature(catalog);
+  if (restore(key, '') === signature) return;
+  for (const song of Array.isArray(catalog?.songs) ? catalog.songs : []) for (const kind of Object.keys(catalogTimingFields)) forget(`star-sing:${song.id}:${kind}`);
+  store(key, signature);
+}
 function songOffset(kind) { const defaults = { lyrics: state.song?.lyricOffsetMs || 0, audio: state.song?.karaokeOffsetMs || 0, notes: state.song?.noteOffsetMs || 0 }; return restore(`star-sing:${state.song?.id}:${kind}`, defaults[kind]); }
 function setTiming(kind, rawValue, persist = true) {
   const field = timingFields[kind], value = Math.max(-120000, Math.min(120000, Math.round(Number(rawValue) || 0))), slider = $(field.slider);
@@ -405,6 +415,7 @@ async function init() {
   try {
     const response = await fetch('./catalog.json', { cache: 'no-cache' }); if (!response.ok) throw new Error(`HTTP ${response.status}`); data = await response.json();
   } catch { setStatus('The song catalogue could not be loaded. Serve this folder over HTTP or GitHub Pages.', true); requestAnimationFrame(pollPlayer); return; }
+  syncCatalogTimingSource(data);
   state.catalogDocument = data; state.catalog = Array.isArray(data.songs) ? data.songs.filter(song => song.id && song.code && song.youtubeId && validUrl(song.youtubeUrl)) : []; drawQueue();
   const selected = state.catalog.find(song => song.id === new URLSearchParams(location.search).get('song')); if (selected) addToQueue(selected);
   await youtubeReady; if (state.song) setupPlayers(state.song);
