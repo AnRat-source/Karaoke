@@ -11,10 +11,17 @@ const store = (key, value) => { try { localStorage.setItem(key, JSON.stringify(v
 const restore = (key, fallback) => { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } };
 const validUrl = value => { try { return new URL(value).protocol === 'https:'; } catch { return false; } };
 const hasKaraoke = song => Boolean(song?.karaokeYoutubeId);
-function resetScore() { state.score = { eligible: 0, heard: 0, peak: 0, lastAt: performance.now(), mic: Boolean(state.micAnalyser), reason: '' }; }
+function resetScore() { state.score = { eligible: 0, heard: 0, pitchCredit: 0, pitchVoiced: 0, peak: 0, lastAt: performance.now(), mic: Boolean(state.micAnalyser), reason: '' }; }
 function clearResult() { state.result = null; clearTimeout(state.resultTimer); state.resultTimer = 0; }
+function activeChartTarget(midi) {
+  const t = state.currentTime - state.noteOffset / 1000; let target = null, bestDistance = Infinity;
+  for (const note of state.notes) if (note.start <= t && t <= note.start + note.duration) { const distance = Number.isFinite(midi) ? octaveDistance(midi, note.midi) : 0; if (distance < bestDistance) { target = note; bestDistance = distance; } }
+  return target;
+}
+function octaveDistance(actual, target) { return Math.abs((((actual - target + 6) % 12 + 12) % 12) - 6); }
+function pitchCredit(actual, target) { return Math.exp(-.5 * (octaveDistance(actual, target) / 1.7) ** 2); }
 function scoringWindow() {
-  if (state.notes.length) { const t = state.currentTime - state.noteOffset / 1000; return state.notes.some(note => note.start <= t && t <= note.start + note.duration); }
+  if (state.notes.length) return Boolean(activeChartTarget());
   const adjusted = state.currentTime - state.lyricOffset / 1000; let index = -1;
   for (let i = 0; i < state.lines.length; i++) { if (adjusted >= state.lines[i].time) index = i; else break; }
   return index >= 0 && adjusted <= lyricEndAt(index);
@@ -41,13 +48,14 @@ function sampleMicScore() {
   if (!score.mic || !state.micAnalyser || !playbackIsActive()) { state.micPitch = null; return; }
   state.micAnalyser.getByteTimeDomainData(state.micData); let sum = 0; for (const value of state.micData) { const level = (value - 128) / 128; sum += level * level; }
   const rms = Math.sqrt(sum / state.micData.length); if (now - state.lastPitchAt > 80) { state.lastPitchAt = now; state.micPitch = estimatePitch(state.micData, state.micContext.sampleRate, rms); }
-  if (!scoringWindow()) return; const strength = Math.max(0, Math.min(1, (rms - .012) / .06)); score.eligible += elapsed; score.heard += elapsed * strength; score.peak = Math.max(score.peak, rms);
+  if (!scoringWindow()) return; const strength = Math.max(0, Math.min(1, (rms - .012) / .06)); score.eligible += elapsed; score.peak = Math.max(score.peak, rms);
+  if (state.notes.length) { const target = state.micPitch && activeChartTarget(state.micPitch.midi); if (target && strength > .05) { score.pitchVoiced += elapsed; score.pitchCredit += elapsed * pitchCredit(state.micPitch.midi, target.midi); } } else score.heard += elapsed * strength;
 }
 function finalScore() {
-  const score = state.score; if (!score?.mic) return { value: null, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: score?.reason || 'MICROPHONE NOT AVAILABLE' };
-  if (score.eligible < 1.5) return { value: null, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: 'NOT ENOUGH TIMED VOCAL WINDOWS' };
-  const value = Math.max(0, Math.min(100, Math.round(score.heard / score.eligible * 100)));
-  return { value, mode: state.notes.length ? 'CHART VOICE SCORE' : 'LYRIC ENERGY SCORE', detail: state.notes.length ? 'MIC ACTIVITY DURING ULTRASTAR NOTES' : 'MIC ACTIVITY DURING TIMED LYRICS' };
+  const score = state.score, chartScore = Boolean(state.notes.length), mode = chartScore ? 'OCTAVE-FLEX PITCH SCORE' : 'LYRIC ENERGY SCORE'; if (!score?.mic) return { value: null, mode, detail: score?.reason || 'MICROPHONE NOT AVAILABLE' };
+  if (score.eligible < 1.5) return { value: null, mode, detail: 'NOT ENOUGH TIMED VOCAL WINDOWS' };
+  if (chartScore) { if (score.pitchVoiced < .4) return { value: null, mode, detail: 'NO STABLE MIC PITCH DETECTED' }; return { value: Math.max(0, Math.min(100, Math.round(score.pitchCredit / score.eligible * 100))), mode, detail: 'NEAR NOTES COUNT · OCTAVES MATCH' }; }
+  return { value: Math.max(0, Math.min(100, Math.round(score.heard / score.eligible * 100))), mode, detail: 'MIC ACTIVITY DURING TIMED LYRICS' };
 }
 
 function setStatus(message, bad = false) { const node = $('status'); node.textContent = message; node.classList.toggle('bad', bad); }
