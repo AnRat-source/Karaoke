@@ -58,7 +58,7 @@
       "key": "F minor",
       "blurVideo": false,
       "ultraStarChartUrl": null,
-      "lyricOffsetMs": 0,
+      "lyricOffsetMs": 1000,
       "noteOffsetMs": 0,
       "lyricLrclibId": 12939933,
       "lyricSearch": [
@@ -115,7 +115,7 @@
       "youtubeUrl": "https://www.youtube.com/watch?v=djV11Xbc914",
       "karaokeYoutubeId": "B5j-PnzNYlA",
       "karaokeProvider": "Zoom Karaoke",
-      "karaokeOffsetMs": 0,
+      "karaokeOffsetMs": 5000,
       "key": "A major",
       "blurVideo": false,
       "ultraStarChartUrl": null,
