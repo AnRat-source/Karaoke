@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, score: null, result: null, resultTimer: 0 };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, resetSeek: 0, lastLine: -2, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, score: null, result: null, resultTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -167,7 +167,7 @@ function nextInQueue(autoStart = false) {
 }
 function bestCodeMatch(code) { return state.catalog.find(song => song.code === code) || state.catalog.find(song => song.code.startsWith(code)); }
 function clearCodeEntry() { state.codeInput = ''; clearTimeout(state.codeTimer); const readout = $('codeEntry'); readout.hidden = true; readout.textContent = ''; }
-function setOperatorOpen(open) { $('operatorPanel').hidden = !open; if (open) { $('operatorYahooClientId').value = String(restore('star-sing:yahoo-furigana-client-id', '') || ''); setStatus('Operator calibration active. Direct values are saved only in this browser.'); } }
+function setOperatorOpen(open) { $('operatorPanel').hidden = !open; if (open) { $('operatorYahooClientId').value = String(restore('star-sing:yahoo-furigana-client-id', '') || ''); $('operatorResetSeek').value = String(state.resetSeek); setStatus('Operator calibration active. Reset start is temporary; direct timing values are saved only in this browser.'); } }
 function clearOperatorCode() { state.operatorCode = ''; clearTimeout(state.operatorTimer); }
 function collectOperatorCode(event) {
   if (event.key === '*') { state.operatorCode = '*'; clearTimeout(state.operatorTimer); state.operatorTimer = setTimeout(clearOperatorCode, 4000); return true; }
@@ -354,7 +354,7 @@ function bind() {
   $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
   $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
   $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
-  $('previous').addEventListener('click', () => { if (state.playerReady) { clearResult(); resetScore(); state.playbackClockBase = 0; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(0, true); state.karaokePlayer?.seekTo(Math.max(0, state.audioOffset / 1000), true); } });
+  $('previous').addEventListener('click', () => { if (state.playerReady) { const start = state.resetSeek; clearResult(); resetScore(); state.currentTime = start; state.playbackClockBase = start; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(start, true); state.karaokePlayer?.seekTo(Math.max(0, start + state.audioOffset / 1000), true); setStatus(start ? `Restarted at ${start.toFixed(2)} seconds (temporary operator reset start).` : 'Restarted from the beginning.'); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
   $('fullscreen').addEventListener('click', toggleFullscreen);
@@ -368,7 +368,7 @@ function bind() {
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
   for (const [kind, field] of Object.entries(timingFields)) $(field.slider).addEventListener('input', event => setTiming(kind, event.target.value));
-  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? 'Direct timing values and Yahoo furigana Client ID saved in this browser.' : 'Direct timing values saved. Add a Yahoo Client ID to enable Japanese readings.'); });
+  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); const limit = Number(state.song?.duration) || 36000; state.resetSeek = Math.max(0, Math.min(limit, Number($('operatorResetSeek').value) || 0)); $('operatorResetSeek').value = String(state.resetSeek); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? `Direct timing values saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s. Yahoo Client ID saved in this browser.` : `Direct timing values saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s.`); });
   $('operatorExportCatalog').addEventListener('click', exportCatalogWithSavedTimings);
   $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
   addEventListener('resize', drawNotes);
