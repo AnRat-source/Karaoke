@@ -316,7 +316,7 @@ function drawLyrics() {
   }
   state.lastLine = -1;
   const next = state.lines[startedIndex + 1], silentFor = startedIndex >= 0 ? Math.max(0, adjusted - activeUntil) : Math.max(0, state.currentTime);
-  if (silentFor < 5 && !state.nowPlayingShown) { renderNowPlaying(root); state.nowPlayingShown = true; return; }
+  if (silentFor < 5) { if (!state.nowPlayingShown) { renderNowPlaying(root); state.nowPlayingShown = true; } return; }
   const interludeStartsAt = startedIndex >= 0 ? activeUntil + 5 : 5, untilNext = next ? Math.max(0, next.time - adjusted) : Infinity;
   const fill = next ? (adjusted - interludeStartsAt) / Math.max(.1, next.time - interludeStartsAt) : (silentFor - 5) / 20;
   renderInterlude(root, fill, untilNext > 0 && untilNext <= 5 ? Math.ceil(untilNext) : 0);
