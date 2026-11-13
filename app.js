@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], lyricOffset: 0, audioOffset: 0, noteOffset: 0, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], chartMin: 0, chartMax: 0, chartCenter: 60, lyricOffset: 0, audioOffset: 0, noteOffset: 0, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -244,13 +244,13 @@ async function getLyrics(song, token) {
   } catch { if (token === state.song?.id) { state.lines = []; state.lastLine = -2; $('lyricStatus').textContent = 'LYRICS: UNAVAILABLE'; drawLyrics(); } }
 }
 async function getNotes(song, token) {
-  state.notes = []; setNoteChartVisible(false);
+  state.notes = []; state.chartMin = 0; state.chartMax = 0; state.chartCenter = 60; setNoteChartVisible(false);
   if (!validUrl(song.ultraStarChartUrl)) { $('noteStatus').textContent = 'ULTRASTAR CHART NOT CONFIGURED'; drawNotes(); return; }
   $('noteStatus').textContent = 'LOADING ULTRASTAR…';
-  try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; setNoteChartVisible(Boolean(state.notes.length)); drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; setNoteChartVisible(false); drawNotes(); } }
+  try { const response = await fetch(song.ultraStarChartUrl); if (!response.ok) throw new Error(); const source = await response.text(); if (token !== state.song?.id) return; state.notes = parseUltraStar(source); if (state.notes.length) { state.chartMin = Math.min(...state.notes.map(note => note.midi)); state.chartMax = Math.max(...state.notes.map(note => note.midi)); state.chartCenter = (state.chartMin + state.chartMax) / 2; } $('noteStatus').textContent = state.notes.length ? `ULTRASTAR · ${state.notes.length} NOTES` : 'ULTRASTAR HAS NO NOTES'; setNoteChartVisible(Boolean(state.notes.length)); drawNotes(); } catch { if (token === state.song?.id) { $('noteStatus').textContent = 'ULTRASTAR UNAVAILABLE'; setNoteChartVisible(false); drawNotes(); } }
 }
 function loadSong(song, autoStart = false) {
-  clearResult(); state.song = song; state.lines = []; state.notes = []; state.micPitch = null; state.lastLine = -2; state.nowPlayingShown = false; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
+  clearResult(); state.song = song; state.lines = []; state.notes = []; state.chartMin = 0; state.chartMax = 0; state.chartCenter = 60; state.micPitch = null; state.lastLine = -2; state.nowPlayingShown = false; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
   $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes'));
@@ -328,10 +328,10 @@ function drawNotes() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); const w = width / dpr, h = height / dpr; ctx.clearRect(0, 0, w, h); ctx.strokeStyle = '#1b545588'; ctx.lineWidth = 1;
   for (let y = 18; y < h; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
   if (!state.notes.length) { ctx.fillStyle = '#94c3bd'; ctx.font = '12px monospace'; ctx.textAlign = 'center'; ctx.fillText('NO ULTRASTAR CHART CONFIGURED FOR THIS SONG', w / 2, h / 2); return; }
-  const t = state.currentTime - state.noteOffset / 1000, scale = 55, cursor = w * .25, center = state.notes.find(note => note.start + note.duration > t)?.midi || 60;
-  for (const note of state.notes) { const x = cursor + (note.start - t) * scale, y = h / 2 - (note.midi - center) * 9; if (x > w || x + note.duration * scale < 0) continue; ctx.fillStyle = note.start <= t && t <= note.start + note.duration ? '#ffd35a' : '#41d7ca'; ctx.fillRect(x, y - 5, Math.max(3, note.duration * scale - 2), 10); }
+  const t = state.currentTime - state.noteOffset / 1000, scale = 55, cursor = w * .25, center = state.chartCenter, pitchScale = Math.max(2.3, Math.min(9, (h - 16) / Math.max(2, state.chartMax - state.chartMin + 2)));
+  for (const note of state.notes) { const x = cursor + (note.start - t) * scale, y = h / 2 - (note.midi - center) * pitchScale; if (x > w || x + note.duration * scale < 0) continue; ctx.fillStyle = note.start <= t && t <= note.start + note.duration ? '#ffd35a' : '#41d7ca'; ctx.fillRect(x, y - 5, Math.max(3, note.duration * scale - 2), 10); }
   ctx.strokeStyle = '#fff4c4'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cursor, 0); ctx.lineTo(cursor, h); ctx.stroke();
-  if (state.micPitch) { const y = Math.max(8, Math.min(h - 8, h / 2 - (state.micPitch.midi - center) * 9)), names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'], rounded = Math.round(state.micPitch.midi), name = `${names[(rounded % 12 + 12) % 12]}${Math.floor(rounded / 12) - 1}`;
+  if (state.micPitch) { const y = Math.max(8, Math.min(h - 8, h / 2 - (state.micPitch.midi - center) * pitchScale)), names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'], rounded = Math.round(state.micPitch.midi), name = `${names[(rounded % 12 + 12) % 12]}${Math.floor(rounded / 12) - 1}`;
     ctx.save(); ctx.strokeStyle = '#d98cff'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#edc5ff'; ctx.beginPath(); ctx.arc(cursor, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#edc5ff'; ctx.font = 'bold 9px monospace'; ctx.textAlign = cursor > w - 58 ? 'right' : 'left'; ctx.fillText(`${name} ${Math.round(state.micPitch.hz)}Hz`, cursor + (cursor > w - 58 ? -8 : 8), Math.max(10, y - 7)); ctx.restore();
   }
 }
@@ -364,10 +364,11 @@ function pollPlayer() {
   refreshPlaybackClock(); requestAnimationFrame(pollPlayer);
 }
 function toggleFullscreen() { const target = $('playerViewport'); if (document.fullscreenElement === target) document.exitFullscreen?.(); else target.requestFullscreen?.(); }
+function togglePlayback() { if ($('play').disabled || !state.player) return; const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer?.pauseVideo(); } else startPlayback(); }
 function bind() {
   $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
   $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
-  $('play').addEventListener('click', () => { if (!$('play').disabled) { const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer.pauseVideo(); } else startPlayback(); } });
+  $('play').addEventListener('click', togglePlayback);
   $('previous').addEventListener('click', () => { if (state.playerReady) { const start = state.resetSeek; clearResult(); resetScore(); state.currentTime = start; state.playbackClockBase = start; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(start, true); state.karaokePlayer?.seekTo(Math.max(0, start + state.audioOffset / 1000), true); setStatus(start ? `Restarted at ${start.toFixed(2)} seconds (temporary operator reset start).` : 'Restarted from the beginning.'); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
@@ -375,6 +376,7 @@ function bind() {
   document.addEventListener('fullscreenchange', () => { const active = document.fullscreenElement === $('playerViewport'); $('fullscreen').classList.toggle('active', active); $('fullscreen').querySelector('span').textContent = active ? 'EXIT FULLSCREEN' : 'FULLSCREEN'; });
   document.addEventListener('keydown', event => {
     if (event.defaultPrevented || event.target.matches?.('input, textarea, select') || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (event.code === 'Space') { event.preventDefault(); if (!event.repeat) togglePlayback(); return; }
     if (collectOperatorCode(event)) { event.preventDefault(); return; }
     if (/^[0-9]$/.test(event.key)) { event.preventDefault(); state.codeInput = `${state.codeInput}${event.key}`.slice(-5); showCodeEntry(); }
     else if (event.key === 'Backspace' && state.codeInput) { event.preventDefault(); state.codeInput = state.codeInput.slice(0, -1); showCodeEntry(); }
