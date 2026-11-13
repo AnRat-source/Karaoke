@@ -290,11 +290,18 @@ function lyricEndAt(index) {
   const end = Math.max(Number(line.end) || 0, wordEnd, readingTime);
   return next ? Math.min(end, next.time) : end;
 }
+const japaneseTimedChunk = text => /^[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}\p{Mark}\p{Punctuation}]+$/u.test(String(text || ''));
+function lyricTimingUnits(word) {
+  const text = String(word?.text || '');
+  if (!japaneseTimedChunk(text) || Array.from(text).length < 2) return [word];
+  const characters = Array.from(text), start = Number(word.start) || 0, end = Math.max(start + .08, Number(word.end) || start + .08), step = (end - start) / characters.length;
+  return characters.map((character, index) => ({ text: character, start: start + step * index, end: start + step * (index + 1) }));
+}
 function appendLyricLine(root, line, className) {
   if (!line) return;
   const row = document.createElement('div'); row.className = className;
   if (className === 'active' && line.words?.length) {
-    for (const word of line.words) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(word.start); span.dataset.wordEnd = String(word.end); span.dataset.wordText = word.text; appendLyricText(span, word.text); row.append(span); }
+    for (const word of line.words) for (const unit of lyricTimingUnits(word)) { const span = document.createElement('span'); span.className = 'word'; span.dataset.wordStart = String(unit.start); span.dataset.wordEnd = String(unit.end); span.dataset.wordText = unit.text; appendLyricText(span, unit.text); row.append(span); }
   } else appendLyricText(row, line.text);
   root.append(row);
 }
