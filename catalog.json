@@ -18,6 +18,7 @@
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 13000,
       "noteOffsetMs": 0,
+      "lyricLrclibId": 576850,
       "lyricsSynced": true
     },
     {
@@ -38,6 +39,7 @@
       "lyricOffsetMs": 0,
       "noteOffsetMs": 0,
       "lyricsSynced": true,
+      "lyricLrclibId": 36627858,
       "lyricSearch": [
         {
           "track_name": "少女A",
@@ -88,6 +90,7 @@
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 10000,
       "noteOffsetMs": 0,
+      "lyricLrclibId": 6101143,
       "lyricsSynced": true
     },
     {
@@ -106,7 +109,8 @@
       "blurVideo": true,
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 0,
-      "noteOffsetMs": 0
+      "noteOffsetMs": 0,
+      "lyricLrclibId": 827107
     },
     {
       "id": "take-on-me",
@@ -125,6 +129,7 @@
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 0,
       "noteOffsetMs": 0,
+      "lyricLrclibId": 2174644,
       "lyricsSynced": true
     },
     {
@@ -170,7 +175,7 @@
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 0,
       "noteOffsetMs": 0,
-      "lyricLrclibId": 19588255
+      "lyricLrclibId": 8923953
     },
     {
       "id": "a-million-dreams",
@@ -265,7 +270,7 @@
       "ultraStarChartUrl": null,
       "lyricOffsetMs": 0,
       "noteOffsetMs": 0,
-      "lyricLrclibId": 15341990
+      "lyricLrclibId": 4687891
     },
     {
       "id": "candy-store",
@@ -323,6 +328,7 @@
       "ultraStarAttribution": "Jonathan Coulton – Code Monkey chart, CC BY-NC 3.0; chart by Julian W. (SKillMaster), via UltraStar-Deluxe/songs",
       "lyricOffsetMs": 3800,
       "noteOffsetMs": 3800,
+      "lyricLrclibId": 7603068,
       "lyricsSynced": true
     }
   ]
