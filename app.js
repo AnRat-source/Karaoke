@@ -3,7 +3,7 @@
 'use strict';
 
 const $ = id => document.getElementById(id);
-const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], chartMin: 0, chartMax: 0, chartCenter: 60, lyricOffset: 0, audioOffset: 0, noteOffset: 0, lyricsSynced: false, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
+const state = { catalog: [], catalogDocument: null, queue: [], queueIndex: -1, song: null, player: null, playerReady: false, karaokePlayer: null, karaokeReady: false, lines: [], notes: [], chartMin: 0, chartMax: 0, chartCenter: 60, lyricOffset: 0, audioOffset: 0, audioStart: 0, noteOffset: 0, lyricsSynced: false, resetSeek: 0, lastLine: -2, nowPlayingShown: false, currentTime: 0, volume: 80, lastSyncAt: 0, autoStart: false, codeInput: '', codeTimer: 0, operatorCode: '', operatorTimer: 0, playbackClockStartedAt: 0, playbackClockBase: 0, furiganaCache: new Map(), furiganaPending: new Map(), micContext: null, micAnalyser: null, micData: null, micStream: null, micPromise: null, micPitch: null, lastPitchAt: 0, score: null, result: null, resultTimer: 0 };
 const canvas = $('pitchCanvas');
 const ctx = canvas.getContext('2d');
 const toTime = value => { const n = Math.max(0, Math.floor(Number(value) || 0)); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
@@ -62,7 +62,7 @@ function finalScore() {
 function setStatus(message, bad = false) { const node = $('status'); node.textContent = message; node.classList.toggle('bad', bad); }
 function logTimingPreset() {
   if (!state.song) return;
-  console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset }));
+  console.info('[STAR SING catalog timing]', JSON.stringify({ id: state.song.id, lyricOffsetMs: state.lyricOffset, karaokeOffsetMs: state.audioOffset, karaokeStartMs: state.audioStart }));
 }
 function hideYoutubeCaptions(player) { try { player?.unloadModule?.('captions'); player?.unloadModule?.('cc'); } catch {} }
 function setNoteChartVisible(visible) { $('noteChartOverlay').hidden = !visible; }
@@ -123,13 +123,17 @@ const catalogTimingFields = { lyrics: 'lyricOffsetMs', audio: 'karaokeOffsetMs',
 function syncCatalogTimingSource(catalog) {
   const key = 'star-sing:catalog-timing-signatures', previous = restore(key, {}), next = {};
   for (const song of Array.isArray(catalog?.songs) ? catalog.songs : []) {
-    const signature = JSON.stringify([Number(song.lyricOffsetMs) || 0, Number(song.karaokeOffsetMs) || 0, Number(song.noteOffsetMs) || 0]);
+    const values = [Number(song.lyricOffsetMs) || 0, Number(song.karaokeOffsetMs) || 0, Number(song.karaokeStartMs) || 0, Number(song.noteOffsetMs) || 0], signature = JSON.stringify(values);
     next[song.id] = signature;
-    if (previous?.[song.id] !== signature) for (const kind of Object.keys(catalogTimingFields)) forget(`star-sing:${song.id}:${kind}`);
+    let prior = null; try { prior = JSON.parse(previous?.[song.id]); } catch {}
+    const unchanged = Array.isArray(prior) && (prior.length === 4 ? prior.every((value, index) => value === values[index]) : prior.length === 3 && prior[0] === values[0] && prior[1] === values[1] && prior[2] === values[3]);
+    if (!unchanged) for (const kind of [...Object.keys(catalogTimingFields), 'audio-start']) forget(`star-sing:${song.id}:${kind}`);
   }
   store(key, next);
 }
 function songOffset(kind) { const defaults = { lyrics: state.song?.lyricOffsetMs || 0, audio: state.song?.karaokeOffsetMs || 0, notes: state.song?.noteOffsetMs || 0 }; return restore(`star-sing:${state.song?.id}:${kind}`, defaults[kind]); }
+function songAudioStart() { return restore(`star-sing:${state.song?.id}:audio-start`, state.song?.karaokeStartMs || 0); }
+function setAudioStart(rawValue, persist = true) { const value = Math.max(0, Math.min(120000, Math.round(Number(rawValue) || 0))); state.audioStart = value; $('operatorAudioStart').value = String(value); if (persist && state.song) store(`star-sing:${state.song.id}:audio-start`, value); if (persist) logTimingPreset(); }
 function setTiming(kind, rawValue, persist = true) {
   const field = timingFields[kind], value = Math.max(-120000, Math.min(120000, Math.round(Number(rawValue) || 0))), slider = $(field.slider);
   state[field.state] = value; slider.value = String(Math.max(Number(slider.min), Math.min(Number(slider.max), value))); $(`${field.slider}Value`).textContent = `${value} ms`; $(field.operator).value = String(value);
@@ -156,6 +160,8 @@ function exportCatalogWithSavedTimings() {
       const value = savedTiming(song.id, kind);
       if (value !== null && song[field] !== value) { song[field] = value; updated++; }
     }
+    const audioStart = savedTiming(song.id, 'audio-start');
+    if (audioStart !== null && song.karaokeStartMs !== audioStart) { song.karaokeStartMs = audioStart; updated++; }
     const synced = savedLyricsSynced(song.id);
     if (synced !== null && Boolean(song.lyricsSynced) !== synced) { song.lyricsSynced = synced; updated++; }
   }
@@ -229,18 +235,18 @@ function startPlayback() {
   const restart = Boolean(state.result) || state.currentTime < .5 || state.player?.getPlayerState?.() === YT.PlayerState.ENDED; clearResult(); if (!state.score || restart) resetScore(); startMicScore(); state.autoStart = false; state.playbackClockBase = restart ? 0 : Math.max(0, Number(state.player.getCurrentTime()) || state.currentTime); state.playbackClockStartedAt = performance.now(); if (restart) state.player.seekTo(0, true); state.player.mute(); state.player.playVideo();
   if (state.karaokeReady) {
     state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume);
-    state.karaokePlayer.seekTo(Math.max(0, (restart ? 0 : state.player.getCurrentTime()) + state.audioOffset / 1000), true); state.karaokePlayer.playVideo();
+    state.karaokePlayer.seekTo(Math.max(0, (restart ? 0 : state.player.getCurrentTime()) + (state.audioOffset + state.audioStart) / 1000), true); state.karaokePlayer.playVideo();
     setTimeout(() => syncKaraokeAudio(true), 250); setTimeout(() => syncKaraokeAudio(true), 900);
   }
   else setStatus('Official video is running muted; karaoke audio is still connecting…');
 }
 function setupPlayers(song) {
   if (!window.YT?.Player) { setStatus('YouTube player is still starting. Please try again in a moment.'); return; }
-  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; $('play').classList.toggle('playing', playing); $('play').querySelector('b').textContent = playing ? 'PAUSE' : 'PLAY'; if (playing) { if (!state.playbackClockStartedAt) { state.playbackClockBase = state.currentTime; state.playbackClockStartedAt = performance.now(); } syncKaraokeAudio(true); } if (event.data === YT.PlayerState.PAUSED || event.data === YT.PlayerState.ENDED) state.playbackClockStartedAt = 0; if (event.data === YT.PlayerState.ENDED) finishSong(); if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
+  const visualEvents = { onReady: () => { state.playerReady = true; state.player.mute(); hideYoutubeCaptions(state.player); updatePlayEnabled(); if (!state.karaokeReady) setStatus('Official video ready; connecting karaoke backing track…'); if (state.autoStart) startPlayback(); }, onStateChange: event => { hideYoutubeCaptions(state.player); const playing = event.data === YT.PlayerState.PLAYING; if (playing) { $('play').classList.add('playing'); $('play').querySelector('b').textContent = 'PAUSE'; if (!state.playbackClockStartedAt) { state.playbackClockBase = state.currentTime; state.playbackClockStartedAt = performance.now(); } syncKaraokeAudio(true); } if (event.data === YT.PlayerState.PAUSED) { state.playbackClockStartedAt = 0; $('play').classList.remove('playing'); $('play').querySelector('b').textContent = 'PLAY'; } if (event.data === YT.PlayerState.ENDED) { if (state.karaokeReady && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING) { $('play').classList.add('playing'); $('play').querySelector('b').textContent = 'PAUSE'; setStatus('Official video ended; karaoke backing audio is continuing.'); } else finishSong(); } if (event.data === YT.PlayerState.CUED && state.autoStart) startPlayback(); } };
   if (state.player) { if (typeof state.player.loadVideoById === 'function') { state.player.loadVideoById(song.youtubeId); state.player.mute(); hideYoutubeCaptions(state.player); } } else state.player = new YT.Player('youtubePlayer', { videoId: song.youtubeId, playerVars, events: visualEvents });
   state.karaokeReady = false;
   if (!hasKaraoke(song)) { updatePlayEnabled(); return; }
-  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); setStatus(`${song.title} ready. Press PLAY to start the muted official video and karaoke backing track.`); if (state.autoStart && state.playerReady) startPlayback(); else if (state.player?.getPlayerState?.() === YT.PlayerState.PLAYING) state.karaokePlayer.playVideo(); }, onError: event => { state.karaokeReady = false; updatePlayEnabled(); setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
+  const karaokeEvents = { onReady: () => { state.karaokeReady = true; state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); updatePlayEnabled(); setStatus(`${song.title} ready. Press PLAY to start the muted official video and karaoke backing track.`); if (state.autoStart && state.playerReady) startPlayback(); else if (state.player?.getPlayerState?.() === YT.PlayerState.PLAYING) state.karaokePlayer.playVideo(); }, onStateChange: event => { if (event.data === YT.PlayerState.ENDED && playbackIsActive()) finishSong(); }, onError: event => { state.karaokeReady = false; updatePlayEnabled(); setStatus(`The karaoke video cannot be embedded or played (YouTube error ${event.data}). Choose a song with another karaoke source.`, true); } };
   if (state.karaokePlayer) { if (typeof state.karaokePlayer.loadVideoById === 'function') { state.karaokePlayer.loadVideoById(song.karaokeYoutubeId); state.karaokePlayer.unMute(); state.karaokePlayer.setVolume(state.volume); state.karaokeReady = true; updatePlayEnabled(); setStatus(`${song.title} ready. Press PLAY to start the muted official video and karaoke backing track.`); if (state.autoStart) startPlayback(); } } else state.karaokePlayer = new YT.Player('karaokePlayer', { videoId: song.karaokeYoutubeId, playerVars, events: karaokeEvents });
 }
 
@@ -283,7 +289,7 @@ function loadSong(song, autoStart = false) {
   clearResult(); state.song = song; state.lines = []; state.notes = []; state.chartMin = 0; state.chartMax = 0; state.chartCenter = 60; state.micPitch = null; state.lastLine = -2; state.nowPlayingShown = false; state.currentTime = 0; state.lastSyncAt = 0; state.playbackClockStartedAt = 0; state.playbackClockBase = 0; state.autoStart = autoStart; resetScore(); $('lyrics').replaceChildren(Object.assign(document.createElement('span'), { textContent: '♪ LOADING TIMED LYRICS ♪' }));
   $('screenIdle').classList.add('hidden'); $('trackTitle').textContent = song.title; $('trackInfo').textContent = `${song.artist} · ${song.genre} · KEY ${song.key}`;
   $('songEyebrow').textContent = `SONG NO. ${song.code}`; $('nowCode').textContent = `NO. ${song.code}`; $('duration').textContent = toTime(song.duration); $('playerViewport').classList.toggle('video-obscured', Boolean(song.blurVideo));
-  $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); selectValue('noteOffset', songOffset('notes')); state.lyricsSynced = songLyricsSynced(song); $('operatorLyricsSynced').checked = state.lyricsSynced;
+  $('youtubeLink').href = song.youtubeUrl; $('youtubeLink').classList.remove('disabled'); selectValue('lyricOffset', songOffset('lyrics')); selectValue('audioOffset', songOffset('audio')); setAudioStart(songAudioStart(), false); selectValue('noteOffset', songOffset('notes')); state.lyricsSynced = songLyricsSynced(song); $('operatorLyricsSynced').checked = state.lyricsSynced;
   setStatus(`Loading ${song.title}: muted official video + karaoke backing track.`);
   const token = song.id; setupPlayers(song); getLyrics(song, token); getNotes(song, token); history.replaceState(null, '', `${location.pathname}?song=${encodeURIComponent(song.id)}`);
 }
@@ -382,12 +388,12 @@ function drawNotes() {
 }
 function playbackIsActive() { return state.player?.getPlayerState?.() === YT.PlayerState.PLAYING || $('play')?.classList.contains('playing'); }
 function useKaraokeClock(visualTime, audioTime) {
-  return Number.isFinite(visualTime) && visualTime < .1 && Number.isFinite(audioTime) && audioTime > .1 && playbackIsActive() && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING;
+  const visualEnded = state.player?.getPlayerState?.() === YT.PlayerState.ENDED; return Number.isFinite(audioTime) && audioTime > .1 && playbackIsActive() && state.karaokePlayer?.getPlayerState?.() === YT.PlayerState.PLAYING && (visualEnded || (Number.isFinite(visualTime) && visualTime < .1));
 }
 function useFallbackClock(visualTime, audioTime) { return (!Number.isFinite(visualTime) || visualTime < .1) && (!Number.isFinite(audioTime) || audioTime < .1) && state.playbackClockStartedAt > 0 && playbackIsActive(); }
 function getTimelineTime() {
   const visualTime = Number(state.player?.getCurrentTime?.()), audioTime = Number(state.karaokePlayer?.getCurrentTime?.());
-  if (useKaraokeClock(visualTime, audioTime)) return Math.max(0, audioTime - state.audioOffset / 1000);
+  if (useKaraokeClock(visualTime, audioTime)) return Math.max(0, audioTime - (state.audioOffset + state.audioStart) / 1000);
   if (useFallbackClock(visualTime, audioTime)) return state.playbackClockBase + (performance.now() - state.playbackClockStartedAt) / 1000;
   return Number.isFinite(visualTime) ? visualTime : state.currentTime;
 }
@@ -395,10 +401,10 @@ function syncKaraokeAudio(force = false) {
   if (!state.karaokeReady || !state.song || !hasKaraoke(state.song) || !playbackIsActive()) return;
   const now = performance.now(); if (!force && now - state.lastSyncAt < 700) return; state.lastSyncAt = now;
   const visualTime = Number(state.player.getCurrentTime()), actual = Number(state.karaokePlayer.getCurrentTime());
-  if (useKaraokeClock(visualTime, actual)) { state.currentTime = Math.max(0, actual - state.audioOffset / 1000); return; }
+  if (useKaraokeClock(visualTime, actual)) { state.currentTime = Math.max(0, actual - (state.audioOffset + state.audioStart) / 1000); return; }
   if (useFallbackClock(visualTime, actual)) { state.currentTime = getTimelineTime(); return; }
   if (!Number.isFinite(visualTime)) return;
-  state.currentTime = visualTime; const desired = visualTime + state.audioOffset / 1000;
+  state.currentTime = visualTime; const desired = visualTime + (state.audioOffset + state.audioStart) / 1000;
   if (Number.isFinite(actual) && Math.abs(actual - desired) > .22) state.karaokePlayer.seekTo(Math.max(0, desired), true);
 }
 function refreshPlaybackClock() {
@@ -409,12 +415,12 @@ function pollPlayer() {
   refreshPlaybackClock(); requestAnimationFrame(pollPlayer);
 }
 function toggleFullscreen() { const target = $('playerViewport'); if (document.fullscreenElement === target) document.exitFullscreen?.(); else target.requestFullscreen?.(); }
-function togglePlayback() { if ($('play').disabled || !state.player) return; const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING; if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer?.pauseVideo(); } else startPlayback(); }
+function togglePlayback() { if ($('play').disabled || !state.player) return; const playing = state.player.getPlayerState() === YT.PlayerState.PLAYING || $('play').classList.contains('playing'); if (playing) { state.playbackClockStartedAt = 0; state.player.pauseVideo(); state.karaokePlayer?.pauseVideo(); $('play').classList.remove('playing'); $('play').querySelector('b').textContent = 'PLAY'; } else startPlayback(); }
 function bind() {
   $('search').addEventListener('input', () => { drawSuggestions(); const value = $('search').value.trim(); if (/^\d{1,5}$/.test(value)) { state.codeInput = value; showCodeEntry(); } });
   $('search').addEventListener('keydown', event => { if (event.key === 'Enter') { const song = matchedSongs()[0]; if (song) { event.preventDefault(); addToQueue(song); clearCodeEntry(); } } });
   $('play').addEventListener('click', togglePlayback);
-  $('previous').addEventListener('click', () => { if (state.playerReady) { const start = state.resetSeek; clearResult(); resetScore(); state.currentTime = start; state.playbackClockBase = start; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(start, true); state.karaokePlayer?.seekTo(Math.max(0, start + state.audioOffset / 1000), true); setStatus(start ? `Restarted at ${start.toFixed(2)} seconds (temporary operator reset start).` : 'Restarted from the beginning.'); } });
+  $('previous').addEventListener('click', () => { if (state.playerReady) { const start = state.resetSeek; clearResult(); resetScore(); state.currentTime = start; state.playbackClockBase = start; state.playbackClockStartedAt = state.player.getPlayerState() === YT.PlayerState.PLAYING ? performance.now() : 0; state.player.seekTo(start, true); state.karaokePlayer?.seekTo(Math.max(0, start + (state.audioOffset + state.audioStart) / 1000), true); setStatus(start ? `Restarted at ${start.toFixed(2)} seconds (temporary operator reset start).` : 'Restarted from the beginning.'); } });
   $('next').addEventListener('click', () => nextInQueue());
   $('volume').addEventListener('input', event => { state.volume = Number(event.target.value); $('volumeValue').textContent = `${state.volume}%`; store('star-sing:volume', state.volume); state.karaokePlayer?.setVolume(state.volume); });
   $('fullscreen').addEventListener('click', toggleFullscreen);
@@ -429,7 +435,7 @@ function bind() {
     else if (event.key === 'Escape' && state.codeInput) clearCodeEntry();
   });
   for (const [kind, field] of Object.entries(timingFields)) $(field.slider).addEventListener('input', event => setTiming(kind, event.target.value));
-  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); state.lyricsSynced = $('operatorLyricsSynced').checked; if (state.song) store(`star-sing:${state.song.id}:lyrics-synced`, state.lyricsSynced); const limit = Number(state.song?.duration) || 36000; state.resetSeek = Math.max(0, Math.min(limit, Number($('operatorResetSeek').value) || 0)); $('operatorResetSeek').value = String(state.resetSeek); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? `Direct timing values and Synced Lyrics tag saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s. Yahoo Client ID saved in this browser.` : `Direct timing values and Synced Lyrics tag saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s.`); });
+  $('operatorApply').addEventListener('click', () => { for (const [kind, field] of Object.entries(timingFields)) setTiming(kind, $(field.operator).value); setAudioStart($('operatorAudioStart').value); state.lyricsSynced = $('operatorLyricsSynced').checked; if (state.song) store(`star-sing:${state.song.id}:lyrics-synced`, state.lyricsSynced); const limit = Number(state.song?.duration) || 36000; state.resetSeek = Math.max(0, Math.min(limit, Number($('operatorResetSeek').value) || 0)); $('operatorResetSeek').value = String(state.resetSeek); const clientId = $('operatorYahooClientId').value.trim(); store('star-sing:yahoo-furigana-client-id', clientId); state.furiganaCache.clear(); state.furiganaPending.clear(); state.lastLine = -2; drawLyrics(); setStatus(clientId ? `Direct timing values, Karaoke Audio Start, and Synced Lyrics tag saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s. Yahoo Client ID saved in this browser.` : `Direct timing values, Karaoke Audio Start, and Synced Lyrics tag saved; Restart will temporarily seek to ${state.resetSeek.toFixed(2)}s.`); });
   $('operatorExportCatalog').addEventListener('click', exportCatalogWithSavedTimings);
   $('closeOperator').addEventListener('click', () => setOperatorOpen(false));
   addEventListener('resize', () => { drawNotes(); fitActiveLyric($('lyrics')); });

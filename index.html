@@ -8,7 +8,7 @@
   <title>RatUTA</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=lyrics-tag1">
-  <script defer src="app.js?v=lyrics-tag1"></script>
+  <script defer src="app.js?v=audio-start1"></script>
 </head>
 <body>
   <div class="video-atmosphere" aria-hidden="true"><video id="backdropVideo" autoplay muted loop playsinline></video><div class="video-fallback"></div></div>
@@ -72,9 +72,10 @@
           </div>
           <aside id="operatorPanel" class="operator-panel" hidden aria-label="Operator calibration settings">
             <div><b>OPERATOR CALIBRATION</b><button id="closeOperator" type="button" title="Close operator settings">×</button></div>
-            <p>Exact millisecond values are saved only in this browser until you export a catalog with the saved timings. Reset start is temporary and is never saved or exported.</p>
+            <p>Exact millisecond values are saved only in this browser until you export a catalog with the saved timings. Karaoke Audio Start skips an intro in the backing-track source; Reset start is temporary and is never saved or exported.</p>
             <label>LYRIC DELAY <input id="operatorLyricOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
             <label>KARAOKE AUDIO DELAY <input id="operatorAudioOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
+            <label>KARAOKE AUDIO START <input id="operatorAudioStart" type="number" min="0" max="120000" step="1" inputmode="numeric"> ms</label>
             <label>NOTE-CHART DELAY <input id="operatorNoteOffset" type="number" min="-120000" max="120000" step="1" inputmode="numeric"> ms</label>
             <label>RESET START (TEMP) <input id="operatorResetSeek" type="number" min="0" step="0.01" inputmode="decimal" value="0"> sec</label>
             <label class="sync-tag-label"><span>SYNCED LYRICS</span><input id="operatorLyricsSynced" type="checkbox"><b>MARK THIS SONG AS CALIBRATED</b></label>
