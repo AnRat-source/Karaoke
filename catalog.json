@@ -108,7 +108,7 @@
       "key": "B♭ major",
       "blurVideo": true,
       "ultraStarChartUrl": null,
-      "lyricOffsetMs": 0,
+      "lyricOffsetMs": 10000,
       "noteOffsetMs": 0,
       "lyricLrclibId": 827107
     },
@@ -268,7 +268,7 @@
       "key": "B minor",
       "blurVideo": false,
       "ultraStarChartUrl": null,
-      "lyricOffsetMs": 0,
+      "lyricOffsetMs": 10400,
       "noteOffsetMs": 0,
       "lyricLrclibId": 4687891
     },
